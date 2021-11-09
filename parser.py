@@ -391,7 +391,7 @@ class ParserBrain(brain.Brain):
 
 	# For fiber-activation readout, remember all fibers that were ever fired.
 	def remember_fibers(self, project_map):
-		for from_area, to_areas in project_map.items():
+		for from_area, to_areas in list(project_map.items()):
 			self.activated_fibers[from_area].update(to_areas)
 
 	def recurrent(self, area):
@@ -437,7 +437,7 @@ class ParserBrain(brain.Brain):
 		winners = set(self.areas[area_name].winners)
 		area_k = self.areas[area_name].k
 		threshold = min_overlap * area_k
-		for word, lexeme in self.lexeme_dict.items():
+		for word, lexeme in list(self.lexeme_dict.items()):
 			word_index = lexeme["index"]
 			word_assembly_start = word_index * area_k
 			word_assembly = set(range(word_assembly_start, word_assembly_start + area_k))
@@ -448,7 +448,7 @@ class ParserBrain(brain.Brain):
 	def getActivatedFibers(self):
 		# Prune activated_fibers pased on the readout_rules
 		pruned_activated_fibers = defaultdict(set)
-		for from_area, to_areas in self.activated_fibers.items():
+		for from_area, to_areas in list(self.activated_fibers.items()):
 			for to_area in to_areas:
 				if to_area in self.readout_rules[from_area]:
 					pruned_activated_fibers[from_area].add(to_area)
@@ -565,14 +565,14 @@ class ParserDebugger():
 		self.explicit_areas = explicit_areas
 
 	def run(self):
-		command = input("DEBUGGER: ENTER to continue, 'P' for PEAK \n")
+		command = eval(input("DEBUGGER: ENTER to continue, 'P' for PEAK \n"))
 		while command:
 			if command == "P":
 				self.peak()
 				return
 			elif command:
 				print("DEBUGGER: Command not recognized...")
-				command = input("DEBUGGER: ENTER to continue, 'P' for PEAK \n")
+				command = eval(input("DEBUGGER: ENTER to continue, 'P' for PEAK \n"))
 			else:
 				return
 
@@ -585,13 +585,13 @@ class ParserDebugger():
 		for area in self.all_areas:
 			self.b.areas[area].unfix_assembly()
 		while True:
-			test_proj_map_string = input("DEBUGGER: enter projection map, eg. {\"VERB\": [\"LEX\"]}, or ENTER to quit\n")
+			test_proj_map_string = eval(input("DEBUGGER: enter projection map, eg. {\"VERB\": [\"LEX\"]}, or ENTER to quit\n"))
 			if not test_proj_map_string:
 				break
 			test_proj_map = json.loads(test_proj_map_string)
 			# Important: save winners to later "remove" this test project round 
 			to_area_set = set()
-			for _, to_area_list in test_proj_map.items():
+			for _, to_area_list in list(test_proj_map.items()):
 				for to_area in to_area_list:
 					to_area_set.add(to_area)
 					if not self.b.areas[to_area].saved_winners:
@@ -604,20 +604,20 @@ class ParserDebugger():
 			for area in self.explicit_areas:
 				if area in to_area_set:
 					area_word = self.b.interpretAssemblyAsString(area)
-					print("DEBUGGER: in explicit area " + area + ", got: " + area_word)
+					print(("DEBUGGER: in explicit area " + area + ", got: " + area_word))
 
-			print_assemblies = input("DEBUGGER: print assemblies in areas? Eg. 'LEX,VERB' or ENTER to cont\n")
+			print_assemblies = eval(input("DEBUGGER: print assemblies in areas? Eg. 'LEX,VERB' or ENTER to cont\n"))
 			if not print_assemblies:
 				continue
 			for print_area in print_assemblies.split(","):
-				print("DEBUGGER: Printing assembly in area " + print_area)
-				print(str(self.b.areas[print_area].winners))
+				print(("DEBUGGER: Printing assembly in area " + print_area))
+				print((str(self.b.areas[print_area].winners)))
 				if print_area in self.explicit_areas:
 					word = self.b.interpretAssemblyAsString(print_area)
-					print("DEBUGGER: in explicit area got assembly = " + word)
+					print(("DEBUGGER: in explicit area got assembly = " + word))
 
 		# Restore assemblies (winners) and w values to before test projections
-		for area, num_test_projects in remove_map.items():
+		for area, num_test_projects in list(remove_map.items()):
 			self.b.areas[area].winners = self.b.areas[area].saved_winners[0]
 			self.b.areas[area].w = self.b.areas[area].saved_w[-num_test_projects - 1]
 			self.b.areas[area].saved_w = self.b.areas[area].saved_w[:(-num_test_projects)]
@@ -695,8 +695,8 @@ def parseHelper(b, sentence, p, LEX_k, project_rounds, verbose, debug,
 		lexeme = lexeme_dict[word]
 		b.activateWord(LEX, word)
 		if verbose:
-			print("Activated word: " + word)
-			print(b.areas[LEX].winners)
+			print(("Activated word: " + word))
+			print((b.areas[LEX].winners))
 
 		for rule in lexeme["PRE_RULES"]:
 			b.applyRule(rule)
@@ -706,12 +706,12 @@ def parseHelper(b, sentence, p, LEX_k, project_rounds, verbose, debug,
 			if area not in proj_map[LEX]:
 				b.areas[area].fix_assembly()
 				if verbose:
-					print("FIXED assembly bc not LEX->this area in: " + area)
+					print(("FIXED assembly bc not LEX->this area in: " + area))
 			elif area != LEX:
 				b.areas[area].unfix_assembly()
 				b.areas[area].winners = []
 				if verbose:
-					print("ERASED assembly because LEX->this area in " + area)
+					print(("ERASED assembly because LEX->this area in " + area))
 
 		proj_map = b.getProjectMap()
 		if verbose:
@@ -725,7 +725,7 @@ def parseHelper(b, sentence, p, LEX_k, project_rounds, verbose, debug,
 				print("Got proj_map = ")
 				print(proj_map)
 			if extreme_debug and word == "a":
-				print("Starting debugger after round " + str(i) + "for word" + word)
+				print(("Starting debugger after round " + str(i) + "for word" + word))
 				debugger.run()
 
 		#if verbose:
@@ -739,7 +739,7 @@ def parseHelper(b, sentence, p, LEX_k, project_rounds, verbose, debug,
 			b.applyRule(rule)
 
 		if debug:
-			print("Starting debugger after the word " + word)
+			print(("Starting debugger after the word " + word))
 			debugger.run()
 			
 
@@ -768,7 +768,7 @@ def parseHelper(b, sentence, p, LEX_k, project_rounds, verbose, debug,
 
 
 	def treeify(parsed_dict, parent):
-		for key, values in parsed_dict.items():
+		for key, values in list(parsed_dict.items()):
 			key_node = pptree.Node(key, parent)
 			if isinstance(values, str):
 				_ = pptree.Node(values, key_node)

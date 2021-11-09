@@ -24,7 +24,8 @@ def project_sim(n=1000000,k=1000,p=0.01,beta=0.05,t=50):
 	b.add_stimulus("stim",k)
 	b.add_area("A",n,k,beta)
 	b.project({"stim":["A"]},{})
-	for i in xrange(t-1):
+	breakpoint()
+	for i in range(t-1):
 		b.project({"stim":["A"]},{"A":["A"]})
 	return b.areas["A"].saved_w
 
@@ -32,7 +33,7 @@ def project_sim(n=1000000,k=1000,p=0.01,beta=0.05,t=50):
 def project_beta_sim(n=100000,k=317,p=0.01,t=100):
 	results = {}
 	for beta in [0.25,0.1,0.075,0.05,0.03,0.01,0.007,0.005,0.003,0.001]:
-		print "Working on " + str(beta) + "\n"
+		print("Working on " + str(beta) + "\n")
 		out = project_sim(n,k,p,beta,t)
 		results[beta] = out
 	return results
@@ -42,9 +43,9 @@ def assembly_only_sim(n=100000,k=317,p=0.05,beta=0.05,project_iter=10):
 	b.add_stimulus("stim",k)
 	b.add_area("A",n,k,beta)
 	b.project({"stim":["A"]},{})
-	for i in xrange(project_iter-1):
+	for i in range(project_iter-1):
 		b.project({"stim":["A"]},{"A":["A"]})
-	for i in xrange(5):
+	for i in range(5):
 		b.project({},{"A":["A"]})
 	return b.areas["A"].saved_w
 
@@ -55,13 +56,13 @@ def pattern_com(n=100000,k=317,p=0.05,beta=0.05,project_iter=10,alpha=0.5,comp_i
 	b.add_stimulus("stim",k)
 	b.add_area("A",n,k,beta)
 	b.project({"stim":["A"]},{})
-	for i in xrange(project_iter-1):
+	for i in range(project_iter-1):
 		b.project({"stim":["A"]},{"A":["A"]})
 	# pick random subset of the neurons to fire
 	subsample_size = int(k*alpha)
 	subsample = random.sample(b.areas["A"].winners, subsample_size)
 	b.areas["A"].winners = subsample
-	for i in xrange(comp_iter):
+	for i in range(comp_iter):
 		b.project({},{"A":["A"]})
 	return b.areas["A"].saved_w,b.areas["A"].saved_winners
 
@@ -71,14 +72,14 @@ def pattern_com_repeated(n=100000,k=317,p=0.05,beta=0.05,project_iter=12,alpha=0
 	b.add_stimulus("stim",k)
 	b.add_area("A",n,k,beta)
 	b.project({"stim":["A"]},{})
-	for i in xrange(project_iter-1):
+	for i in range(project_iter-1):
 		b.project({"stim":["A"]},{"A":["A"]})
 
 	subsample_size = int(k*alpha)
 	rounds_to_completion = []
 	# pick random subset of the neurons to fire
 	subsample = random.sample(b.areas["A"].winners, subsample_size)
-	for trail in xrange(trials):
+	for trail in range(trials):
 		if resample:
 			subsample = random.sample(b.areas["A"].winners, subsample_size)
 		b.areas["A"].winners = subsample
@@ -99,7 +100,7 @@ def pattern_com_alphas(n=100000,k=317,p=0.01,beta=0.05,
 	b.add_stimulus("stim",k)
 	b.add_area("A",n,k,beta)
 	b.project({"stim":["A"]},{})
-	for i in xrange(project_iter-1):
+	for i in range(project_iter-1):
 		b.project({"stim":["A"]},{"A":["A"]})
 	results = {}
 	A_winners = b.areas["A"].winners
@@ -109,7 +110,7 @@ def pattern_com_alphas(n=100000,k=317,p=0.01,beta=0.05,
 		b_copy = copy.deepcopy(b)
 		subsample = random.sample(b_copy.areas["A"].winners, subsample_size)
 		b_copy.areas["A"].winners = subsample
-		for i in xrange(comp_iter):
+		for i in range(comp_iter):
 			b_copy.project({},{"A":["A"]})
 		final_winners = b_copy.areas["A"].winners
 		o = bu.overlap(final_winners, A_winners)
@@ -122,16 +123,16 @@ def pattern_com_iterations(n=100000,k=317,p=0.01,beta=0.05,alpha=0.4,comp_iter=8
 	b.add_stimulus("stim",k)
 	b.add_area("A",n,k,beta)
 	b.project({"stim":["A"]},{})
-	for i in xrange(min_iter-2):
+	for i in range(min_iter-2):
 		b.project({"stim":["A"]},{"A":["A"]})
 	results = {}
 	subsample_size = int(k*alpha)
 	subsample = random.sample(b.areas["A"].winners, subsample_size)
-	for i in xrange(min_iter,max_iter+1):
+	for i in range(min_iter,max_iter+1):
 		b.project({"stim":["A"]},{"A":["A"]})
 		b_copy = copy.deepcopy(b)
 		b_copy.areas["A"].winners = subsample
-		for j in xrange(comp_iter):
+		for j in range(comp_iter):
 			b_copy.project({},{"A":["A"]})
 		o = bu.overlap(b_copy.areas["A"].winners, b.areas["A"].winners)
 		results[i] = float(o)/float(k)
@@ -147,28 +148,28 @@ def associate(n=100000,k=317,p=0.05,beta=0.1,overlap_iter=10):
 	b.add_area("C",n,k,beta)
 	b.project({"stimA":["A"],"stimB":["B"]},{})
 	# Create assemblies A and B to stability
-	for i in xrange(9):
+	for i in range(9):
 		b.project({"stimA":["A"],"stimB":["B"]},
 			{"A":["A"],"B":["B"]})
 	b.project({"stimA":["A"]},{"A":["A","C"]})
 	# Project A->C
-	for i in xrange(9):
+	for i in range(9):
 		b.project({"stimA":["A"]},
 			{"A":["A","C"],"C":["C"]})
 	# Project B->C
 	b.project({"stimB":["B"]},{"B":["B","C"]})
-	for i in xrange(9):
+	for i in range(9):
 		b.project({"stimB":["B"]},
 			{"B":["B","C"],"C":["C"]})
 	# Project both A,B to C
 	b.project({"stimA":["A"],"stimB":["B"]},
 		{"A":["A","C"],"B":["B","C"]})
-	for i in xrange(overlap_iter-1):
+	for i in range(overlap_iter-1):
 		b.project({"stimA":["A"],"stimB":["B"]},
 				{"A":["A","C"],"B":["B","C"],"C":["C"]})
 	# Project just B
 	b.project({"stimB":["B"]},{"B":["B","C"]})
-	for i in xrange(9):
+	for i in range(9):
 		b.project({"stimB":["B"]},{"B":["B","C"],"C":["C"]})
 	return b
 
@@ -185,27 +186,27 @@ def association_grand_sim(n=100000,k=317,p=0.01,beta=0.05,min_iter=10,max_iter=2
 	b.add_area("C",n,k,beta)
 	b.project({"stimA":["A"],"stimB":["B"]},{})
 	# Create assemblies A and B to stability
-	for i in xrange(9):
+	for i in range(9):
 		b.project({"stimA":["A"],"stimB":["B"]},
 			{"A":["A"],"B":["B"]})
 	b.project({"stimA":["A"]},{"A":["A","C"]})
 	# Project A->C
-	for i in xrange(9):
+	for i in range(9):
 		b.project({"stimA":["A"]},
 			{"A":["A","C"],"C":["C"]})
 	# Project B->C
 	b.project({"stimB":["B"]},{"B":["B","C"]})
-	for i in xrange(9):
+	for i in range(9):
 		b.project({"stimB":["B"]},
 			{"B":["B","C"],"C":["C"]})
 	# Project both A,B to C
 	b.project({"stimA":["A"],"stimB":["B"]},
 		{"A":["A","C"],"B":["B","C"]})
-	for i in xrange(min_iter-2):
+	for i in range(min_iter-2):
 		b.project({"stimA":["A"],"stimB":["B"]},
 				{"A":["A","C"],"B":["B","C"],"C":["C"]})
 	results = {}
-	for i in xrange(min_iter,max_iter+1):
+	for i in range(min_iter,max_iter+1):
 		b.project({"stimA":["A"],"stimB":["B"]},
 				{"A":["A","C"],"B":["B","C"],"C":["C"]})
 		b_copy1 = copy.deepcopy(b)
@@ -234,7 +235,7 @@ def merge_sim(n=100000,k=317,p=0.01,beta=0.05,max_t=50):
 		{"A":["A","C"],"B":["B","C"]})
 	b.project({"stimA":["A"],"stimB":["B"]},
 		{"A":["A","C"],"B":["B","C"],"C":["C","A","B"]})
-	for i in xrange(max_t-1):
+	for i in range(max_t-1):
 		b.project({"stimA":["A"],"stimB":["B"]},
 			{"A":["A","C"],"B":["B","C"],"C":["C","A","B"]})
 	return b.areas["A"].saved_w, b.areas["B"].saved_w, b.areas["C"].saved_w
@@ -242,7 +243,7 @@ def merge_sim(n=100000,k=317,p=0.01,beta=0.05,max_t=50):
 def merge_beta_sim(n=100000,k=317,p=0.01,t=100):
 	results = {}
 	for beta in [0.3,0.2,0.1,0.075,0.05]:
-		print "Working on " + str(beta) + "\n"
+		print("Working on " + str(beta) + "\n")
 		out = merge_sim(n,k,p,beta=beta,max_t=t)
 		results[beta] = out
 	return results
@@ -261,10 +262,10 @@ def plot_project_sim(show=True, save="", show_legend=False, use_text_font=True):
 	od = OrderedDict(sorted(results.items()))
 	x = np.arange(100)
 	print(x)
-	for key,val in od.iteritems():
+	for key,val in od.items():
 		plt.plot(x,val,linewidth=0.7)
 	if show_legend:
-		plt.legend(od.keys(), loc='upper left')
+		plt.legend(list(od.keys()), loc='upper left')
 	ax = plt.axes()
 	ax.set_xticks([0,10,20,50,100])
 	k = 317
@@ -272,7 +273,7 @@ def plot_project_sim(show=True, save="", show_legend=False, use_text_font=True):
 	plt.xlabel(r'$t$')
 
 	if not show_legend:
-		for line, name in zip(ax.lines, od.keys()):
+		for line, name in zip(ax.lines, list(od.keys())):
 		    y = line.get_ydata()[-1]
 		    ax.annotate(name, xy=(1,y), xytext=(6,0), color=line.get_color(), 
 		                xycoords = ax.get_yaxis_transform(), textcoords="offset points",
@@ -291,10 +292,10 @@ def plot_merge_sim(show=True, save="", show_legend=False, use_text_font=True):
 
 	od = OrderedDict(sorted(results.items()))
 	x = np.arange(101)
-	for key,val in od.iteritems():
+	for key,val in od.items():
 		plt.plot(x,val,linewidth=0.7)
 	if show_legend:
-		plt.legend(od.keys(), loc='upper left')
+		plt.legend(list(od.keys()), loc='upper left')
 	ax = plt.axes()
 	ax.set_xticks([0,10,20,50,100])
 	k = 317
@@ -302,7 +303,7 @@ def plot_merge_sim(show=True, save="", show_legend=False, use_text_font=True):
 	plt.xlabel(r'$t$')
 
 	if not show_legend:
-		for line, name in zip(ax.lines, od.keys()):
+		for line, name in zip(ax.lines, list(od.keys())):
 		    y = line.get_ydata()[-1]
 		    ax.annotate(name, xy=(1,y), xytext=(6,0), color=line.get_color(), 
 		                xycoords = ax.get_yaxis_transform(), textcoords="offset points",
@@ -320,7 +321,7 @@ def plot_association(show=True, save="", use_text_font=True):
 		plt.rcParams['font.family'] = 'STIXGeneral'
 
 	od = OrderedDict(sorted(results.items()))
-	plt.plot(od.keys(),od.values(),linewidth=0.7)
+	plt.plot(list(od.keys()),list(od.values()),linewidth=0.7)
 	ax = plt.axes()
 	plt.yticks([0.1,0.2,0.3,0.4,0.5],["10%","20%","30%","40%","50%"])
 	plt.xlabel(r'$t$')
@@ -336,7 +337,7 @@ def plot_pattern_com(show=True, save="", use_text_font=True):
 		plt.rcParams['font.family'] = 'STIXGeneral'
 
 	od = OrderedDict(sorted(results.items()))
-	plt.plot(od.keys(),od.values(),linewidth=0.7)
+	plt.plot(list(od.keys()),list(od.values()),linewidth=0.7)
 	ax = plt.axes()
 	plt.yticks([0,0.25,0.5,0.75,1],["0%","25%","50%","75%","100%"])
 	plt.xlabel(r'$t$')
@@ -352,7 +353,7 @@ def plot_overlap(show=True, save="", use_text_font=True):
 		plt.rcParams['font.family'] = 'STIXGeneral'
 
 	od = OrderedDict(sorted(results.items()))
-	plt.plot(od.keys(),od.values(),linewidth=0.7)
+	plt.plot(list(od.keys()),list(od.values()),linewidth=0.7)
 	ax = plt.axes()
 	plt.xticks([0,0.2,0.4,0.6,0.8],["","20%","40%","60%","80%"])
 	plt.xlabel('overlap (assemblies)')
@@ -368,7 +369,7 @@ def density(n=100000,k=317,p=0.01,beta=0.05):
 	b.add_stimulus("stim",k)
 	b.add_area("A",n,k,beta)
 	b.project({"stim":["A"]},{})
-	for i in xrange(9):
+	for i in range(9):
 		b.project({"stim":["A"]},{"A":["A"]})
 	conn = b.connectomes["A"]["A"]
 	final_winners = b.areas["A"].winners
@@ -382,7 +383,7 @@ def density(n=100000,k=317,p=0.01,beta=0.05):
 def density_sim(n=100000,k=317,p=0.01,beta_values=[0,0.025,0.05,0.075,0.1]):
 	results = {}
 	for beta in beta_values:
-		print "Working on " + str(beta) + "\n"
+		print("Working on " + str(beta) + "\n")
 		out = density(n,k,p,beta)
 		results[beta] = out
 	return results
@@ -394,7 +395,7 @@ def plot_density_ee(show=True,save="",use_text_font=True):
 	od = bu.sim_load('density_results')
 	plt.xlabel(r'$\beta$')
 	plt.ylabel(r'assembly $p$')
-	plt.plot(od.keys(),od.values(),linewidth=0.7)
+	plt.plot(list(od.keys()),list(od.values()),linewidth=0.7)
 	plt.plot([0,0.06],[0.01,0.01],color='red',linestyle='dashed',linewidth=0.7)
 	if show:
 		plt.show()
@@ -412,25 +413,25 @@ def fixed_assembly_recip_proj(n=100000, k=317, p=0.01, beta=0.05):
 	# Will project fixes A into B
 	b.add_area("B",n,k,beta)
 	b.project({"stimA":["A"]},{})
-	print("A.w=" + str(b.areas["A"].w))
-	for i in xrange(20):
+	print(("A.w=" + str(b.areas["A"].w)))
+	for i in range(20):
 		b.project({"stimA":["A"]}, {"A":["A"]})
-		print("A.w=" + str(b.areas["A"].w))
+		print(("A.w=" + str(b.areas["A"].w)))
 	# Freeze assembly in A and start projecting A <-> B
 	b.areas["A"].fix_assembly()
 	b.project({}, {"A":["B"]})
-	for i in xrange(20):
+	for i in range(20):
 		b.project({}, {"A":["B"], "B":["A","B"]})
-		print("B.w=" + str(b.areas["B"].w))
+		print(("B.w=" + str(b.areas["B"].w)))
 	# If B has stabilized, this implies that the A->B direction is stable.
 	# Therefore to test that this "worked" we should check that B->A restores A
-	print("Before B->A, A.w=" + str(b.areas["A"].w))
+	print(("Before B->A, A.w=" + str(b.areas["A"].w)))
 	b.areas["A"].unfix_assembly()
 	b.project({},{"B":["A"]})
-	print("After B->A, A.w=" + str(b.areas["A"].w))
-	for i in xrange(20):
+	print(("After B->A, A.w=" + str(b.areas["A"].w)))
+	for i in range(20):
 		b.project({}, {"B":["A"],"A":["A"]})
-		print("A.w=" + str(b.areas["A"].w))
+		print(("A.w=" + str(b.areas["A"].w)))
 	overlaps = bu.get_overlaps(b.areas["A"].saved_winners[-22:],0,percentage=True)
 	print(overlaps)
 
@@ -443,7 +444,7 @@ def fixed_assembly_merge(n=100000, k=317, p=0.01, beta=0.05):
 	b.add_area("B",n,k,beta)
 	b.add_area("C",n,k,beta)
 	b.project({"stimA":["A"], "stimB":["B"]},{})
-	for i in xrange(20):
+	for i in range(20):
 		b.project({"stimA":["A"], "stimB":["B"]},
 			{"A":["A"], "B":["B"]})
 	b.areas["A"].fix_assembly()

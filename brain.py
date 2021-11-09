@@ -6,16 +6,134 @@ from scipy.stats import binom
 from scipy.stats import truncnorm
 import math
 import random
-
+from visualization import Visualizer
 # Configurable assembly model for simulations
 # Author Daniel Mitropolsky, 2018
+
 
 class Stimulus:
 	def __init__(self, k):
 		self.k = k
 
+# test Christodoulos
+class LearningRule:
+	"""
+	Handles the updates of the synaptic weights.
+	In case of stdp, 1 +/- beta is the maximum or minimum value a synaptic update can have
+	"""
+	def __init__(self, rule='hebb', **kwargs):
+		if rule not in ['hebb', 'oja', 'stdp']:
+			raise Exception('Rule not found')
+		self.rule = rule
+		if rule == 'stdp':
+			if not 'time_function' in kwargs:
+				raise Exception('time_function required with stdp')
+			self.time_function = kwargs['time_function']
+				
+
+	def update_area_to_area_weights(self, connectomes, from_area_winners, beta, new_winners, minimum_activation_input=0):
+		if self.rule in ['hebb', 'oja']:
+			for i in new_winners:
+				for j in from_area_winners:
+					coefficient = 1.0 + beta if self.rule == 'hebb' else (1.0 + beta) * (1 - connectomes[j][i])
+					connectomes[j][i] = connectomes[j][i] + coefficient if self.rule == 'oja' else connectomes[j][i] * coefficient
+		elif self.rule == 'stdp':
+			for i in new_winners:
+				total_sum = 0
+				for position_j, j in enumerate(from_area_winners):
+					total_sum += connectomes[j][i]
+					is_late = total_sum > minimum_activation_input
+					coefficient = self._time_reward(position_j, beta, is_late)
+					connectomes[j][i] *= coefficient
+					print(coefficient)
+				print(f'{total_sum},{minimum_activation_input}')
+
+
+			#todo
+
+	def update_stimulus_to_area_weights(self, connectomes, beta, new_winners=None, minimum_activation_input=0):
+		if self.rule in ['hebb', 'oja']:
+			for i in new_winners:
+				coefficient = 1.0 + beta if self.rule == 'hebb' else (1.0 + beta) * (1 - connectomes[i])
+				connectomes[i] = connectomes[i] * coefficient if self.rule == 'hebb' else connectomes[i] + coefficient
+		elif self.rule == 'stdp':
+			#todo fix
+			return
+			# for i in new_winners:
+				# connectomes[i] *= (1 + beta)
+			# total_sum = 0
+			# new_winners = sorted(new_winners)
+			# for position_i, i in enumerate(new_winners):
+			# 	total_sum += connectomes[i]
+			# 	is_late = total_sum > minimum_activation_input
+			# 	coefficient = self._time_reward(position_i, beta, is_late)
+			# 	connectomes[i] *= coefficient
+
+
+	def _time_reward(self, position, beta, is_late):
+		if self.time_function == 'step':
+				return (1.0 + beta) if not is_late else (1.0 - beta)
+		elif self.time_function == '1/x':
+			denominator = -position if is_late else position
+			if denominator == 0:
+				return 1 + beta
+			if denominator > 0:
+				return min(1 + 1.0 / denominator, 1.0 + beta)
+			else:
+				return max(1 + 1.0 / denominator, (1.0 - beta))		
+
+
+
+					
+
+
+	# def _calculate_stdp_coefficient(self, synaptic_weight, input_winner_position, total_from_winners, beta, minimum_activation_input=0):
+	# 	if self.rule == 'stdp':
+	# 		if self.time_function == 'step':
+	# 			return (1.0 + beta) if j < total_winners else (1.0 - beta)
+	# 		elif self.time_function == '1/x':
+	# 			denominator = input_winner_position - total_from_winners / 2
+	# 			if denominator == 0:
+	# 				return 1 + beta
+	# 			if denominator > 0:
+	# 				return min(1 + 1.0 / denominator, 1.0 + beta)
+	# 			else:
+	# 				return max(1 + 1.0 / denominator, (1.0 - beta))
+	# 	elif self.rule == 'hebb':
+	# 			return (1.0 + beta)
+	# 	elif self.rule == 'oja':
+	# 		return (1.0 + beta) * (1 - synaptic_weight)
+
+
+	# def update(self, connectomes, new_winners, from_area_winners):
+	# 	if self.rule == 'stdp':
+	# 		for i in new_winners:
+	# 			for position_j, j in enumerate(from_area_winners):
+	# 				if self.time_function == 'step':
+	# 					connectomes[j][i] *= (1.0 + self.beta) if j < len(from_area) else -(1.0 + self.beta)
+	# 				elif self.time_function == '1/x':
+	# 					denominator = position_j - len(from_area_winners) / 2
+	# 					if denominator == 0:
+	# 						denominator = beta
+	# 					if denominator > 0:
+	# 						coefficient = min(1.0 / denominator, 1.0 + beta)
+	# 					else:
+	# 						coefficient = max(1.0 / denominator, -(1.0 + beta))
+	# 					connectomes[j][i] *= coefficient
+	# 	else:
+	# 		for i in new_winners:
+	# 			for j in from_area_winners:
+	# 				if self.rule == 'hebb':
+	# 					connectomes[j][i] *= (1.0 + self.beta)
+	# 				elif self.rule == 'oja':
+	# 					if connectomes[j][i] > 0.0:
+	# 						connectomes[j][i] *= (1.0 + self.beta) * (1 - connectomes[j][i])
+					
+
+
+
 class Area:
-	def __init__(self, name, n, k, beta=0.05):
+	def __init__(self, name, n, k, beta=0.05, learning_rule='hebb', **kwargs):
 		self.name = name
 		self.n = n
 		self.k = k
@@ -41,6 +159,8 @@ class Area:
 		self.fixed_assembly = False
 		# Whether to fully simulate this area
 		self.explicit = False
+
+		self.learning_rule = LearningRule(learning_rule, **kwargs)
 
 	def update_winners(self):
 		self.winners = self.new_winners
@@ -85,10 +205,10 @@ class Brain:
 			self.areas[key].stimulus_beta[name] = self.areas[key].beta
 		self.stimuli_connectomes[name] = new_connectomes
 
-	def add_area(self, name, n, k, beta):
-		self.areas[name] = Area(name, n, k, beta)
+	def add_area(self, name, n, k, beta, learning_rule='hebb', **kwargs):
+		self.areas[name] = Area(name, n, k, beta, learning_rule=learning_rule, **kwargs)
 
-		for stim_name, stim_connectomes in self.stimuli_connectomes.items():
+		for stim_name, stim_connectomes in list(self.stimuli_connectomes.items()):
 			stim_connectomes[name] = np.empty(0)
 			self.areas[name].stimulus_beta[stim_name] = beta
 
@@ -104,11 +224,11 @@ class Brain:
 			self.areas[name].area_beta[key] = beta
 		self.connectomes[name] = new_connectomes
 
-	def add_explicit_area(self, name, n, k, beta):
+	def add_explicit_area(self, name, n, k, beta, rule='hebb'):
 		self.areas[name] = Area(name, n, k, beta)
 		self.areas[name].explicit = True
 
-		for stim_name, stim_connectomes in self.stimuli_connectomes.items():
+		for stim_name, stim_connectomes in list(self.stimuli_connectomes.items()):
 			stim_connectomes[name] = np.random.binomial(self.stimuli[stim_name].k, self.p, size=(n)) * 1.0
 			self.areas[name].stimulus_beta[stim_name] = beta
 
@@ -133,13 +253,13 @@ class Brain:
 	def update_plasticities(self, area_update_map={}, stim_update_map={}):
 		# area_update_map consists of area1: list[ (area2, new_beta) ]
 		# represents new plasticity FROM area2 INTO area1
-		for to_area, update_rules in area_update_map.items():
+		for to_area, update_rules in list(area_update_map.items()):
 			for (from_area, new_beta) in update_rules: 
 				self.areas[to_area].area_beta[from_area] = new_beta
 
 		# stim_update_map consists of area: list[ (stim, new_beta) ]f
 		# represents new plasticity FROM stim INTO area
-		for area, update_rules in stim_update_map.items():
+		for area, update_rules in list(stim_update_map.items()):
 			for (stim, new_beta) in update_rules:
 				self.areas[area].stimulus_beta[stim] = new_beta
 
@@ -151,7 +271,7 @@ class Brain:
 		stim_in = defaultdict(lambda: [])
 		area_in = defaultdict(lambda: [])
 
-		for stim, areas in stim_to_area.items():
+		for stim, areas in list(stim_to_area.items()):
 			if stim not in self.stimuli:
 				raise IndexError(stim + " not in brain.stimuli")
 				return
@@ -160,7 +280,7 @@ class Brain:
 					raise IndexError(area + " not in brain.areas")
 					return
 				stim_in[area].append(stim)
-		for from_area, to_areas in area_to_area.items():
+		for from_area, to_areas in list(area_to_area.items()):
 			if from_area not in self.areas:
 				raise IndexError(from_area + " not in brain.areas")
 				return
@@ -170,7 +290,7 @@ class Brain:
 					return
 				area_in[to_area].append(from_area)
 
-		to_update = set().union(stim_in.keys(), area_in.keys())
+		to_update = set().union(list(stim_in.keys()), list(area_in.keys()))
 
 		for area in to_update:
 			num_first_winners = self.project_into(self.areas[area], stim_in[area], area_in[area], verbose)
@@ -191,7 +311,7 @@ class Brain:
 	# k top of previous winners and potential new winners
 	# if new winners > 0, redo connectome and intra_connectomes 
 	# have to wait to replace new_winners
-		print("Projecting " + ",".join(from_stimuli) + " and " + ",".join(from_areas) + " into " + area.name)
+		print(("Projecting " + ",".join(from_stimuli) + " and " + ",".join(from_areas) + " into " + area.name))
 
 		# If projecting from area with no assembly, complain.
 		for from_area in from_areas:
@@ -200,6 +320,10 @@ class Brain:
 
 		name = area.name
 		prev_winner_inputs = [0.] * area.w
+
+
+
+		# update the previous winners input from the stimuli and connectomes from input areas
 		for stim in from_stimuli:
 			stim_inputs = self.stimuli_connectomes[stim][name]
 			for i in range(area.w):
@@ -213,6 +337,10 @@ class Brain:
 		if verbose:
 			print("prev_winner_inputs: ")
 			print(prev_winner_inputs)
+
+		# what is an explicit area?
+
+		# add up the stimuli going into the area + the projecting from area winners?
 
 		# simulate area.k potential new winners if the area is not explicit 
 		if not area.explicit:
@@ -232,14 +360,14 @@ class Brain:
 				num_inputs += 1
 
 			if verbose:
-				print("total_k = " + str(total_k) + " and input_sizes = " + str(input_sizes))
-
+				print(("total_k = " + str(total_k) + " and input_sizes = " + str(input_sizes)))
+			# effective_n are the total cells in the area
 			effective_n = area.n - area.w
 			# Threshold for inputs that are above (n-k)/n percentile.
 			# self.p can be changed to have a custom connectivity into thi sbrain area.
 			alpha = binom.ppf((float(effective_n-area.k)/effective_n), total_k, self.p)
 			if verbose:
-				print("Alpha = " + str(alpha))
+				print(("Alpha = " + str(alpha)))
 			# use normal approximation, between alpha and total_k, round to integer
 			# create k potential_new_winners
 			std = math.sqrt(total_k * self.p * (1.0-self.p))
@@ -248,6 +376,7 @@ class Brain:
 			b = float(total_k - mu) / std
 			potential_new_winners = truncnorm.rvs(a, b, scale=std, size=area.k)
 			for i in range(area.k):
+				# centering the binomial
 				potential_new_winners[i] += mu
 				potential_new_winners[i] = round(potential_new_winners[i])
 			potential_new_winners = potential_new_winners.tolist()
@@ -259,22 +388,35 @@ class Brain:
 			# take max among prev_winner_inputs, potential_new_winners
 			# get num_first_winners (think something small)
 			# can generate area.new_winners, note the new indices
+
+
 			all_potential_winners = prev_winner_inputs + potential_new_winners
 		else:
 			all_potential_winners = prev_winner_inputs
 
-		new_winner_indices = heapq.nlargest(area.k, range(len(all_potential_winners)), all_potential_winners.__getitem__)
-		num_first_winners = 0
 
+
+		# pick k largest in this area
+		new_winner_indices = heapq.nlargest(area.k, list(range(len(all_potential_winners))), all_potential_winners.__getitem__)
+		# the minimum input a neuron needs to fire
+		minimum_activation_input = heapq.nlargest(area.k, all_potential_winners)[-1]
+		#chris test
+		viz = Visualizer()
+		viz.plot_all_potential_winners(all_potential_winners, minimum_activation_input)
+
+		num_first_winners = 0
 		if not area.explicit:
 			first_winner_inputs = []
 			for i in range(area.k):
+				# first time winning
 				if new_winner_indices[i] >= area.w:
 					first_winner_inputs.append(potential_new_winners[new_winner_indices[i] - area.w])
 					new_winner_indices[i] = area.w+ num_first_winners
 					num_first_winners += 1
 		area.new_winners = new_winner_indices
 		area.new_w = area.w + num_first_winners
+
+		# what is a fixed assembly? Assemblies don't change, i won't need it for this
 
 		# For experiments with a "fixed" assembly in some area.
 		if area.fixed_assembly:
@@ -287,15 +429,16 @@ class Brain:
 
 		if verbose:
 			print("new_winners: ")
-			print(area.new_winners)
+			print((area.new_winners))
 
 		# for i in num_first_winners
 		# generate where input came from
 			# 1) can sample input from array of size total_k, use ranges
 			# 2) can use stars/stripes method: if m total inputs, sample (m-1) out of total_k
+		# simulates where the input came from, from all the stimuli and areas projecting from. Random sampling from total_k
 		first_winner_to_inputs = {}
 		for i in range(num_first_winners):
-			input_indices = random.sample(range(0, total_k), int(first_winner_inputs[i]))
+			input_indices = random.sample(list(range(0, total_k)), int(first_winner_inputs[i]))
 			inputs = np.zeros(num_inputs)
 			total_so_far = 0
 			for j in range(num_inputs):
@@ -303,9 +446,8 @@ class Brain:
 				total_so_far += input_sizes[j]
 			first_winner_to_inputs[i] = inputs
 			if verbose:
-				print("for first_winner # " + str(i) + " with input " + str(first_winner_inputs[i]) + " split as so: ")
+				print(("for first_winner # " + str(i) + " with input " + str(first_winner_inputs[i] ) + " split as so: "))
 				print(inputs)
-
 		m = 0
 		# connectome for each stim->area
 			# add num_first_winners cells, sampled input * (1+beta)
@@ -319,11 +461,22 @@ class Brain:
 			stim_to_area_beta = area.stimulus_beta[stim]
 			if self.no_plasticity:
 				stim_to_area_beta = 0.0
-			for i in area.new_winners:
-				self.stimuli_connectomes[stim][name][i] *= (1+stim_to_area_beta)
+			# area.learning_rule.update_stimulus_to_area_weights(self.stimuli_connectomes[stim][name], area.new_winners, area.stimulus_beta[stim])
+			if area.learning_rule.rule == 'stdp':
+				area.learning_rule.update_stimulus_to_area_weights(self.stimuli_connectomes[stim][name], 
+																   stim_to_area_beta,
+																   area.new_winners,
+																   minimum_activation_input=minimum_activation_input)
+			else:
+				area.learning_rule.update_stimulus_to_area_weights(self.stimuli_connectomes[stim][name], 
+															  	   stim_to_area_beta,
+															  	   area.new_winners)
+			# todo: change
+			# for i in area.new_winners:
+			# 	self.stimuli_connectomes[stim][name][i] *= (1+stim_to_area_beta)
 			if verbose:
-				print(stim + " now looks like: ")
-				print(self.stimuli_connectomes[stim][name])
+				print((stim + " now looks like: "))
+				print((self.stimuli_connectomes[stim][name]))
 			m += 1
 
 		# !!!!!!!!!!!!!!!!
@@ -350,12 +503,27 @@ class Brain:
 			area_to_area_beta = area.area_beta[from_area]
 			if self.no_plasticity:
 				area_to_area_beta = 0.0
-			for i in area.new_winners:
-				for j in from_area_winners:
-					self.connectomes[from_area][name][j][i] *= (1.0 + area_to_area_beta)
+
+			# chris
+			if area.learning_rule.rule == 'stdp':
+				area.learning_rule.update_area_to_area_weights(self.connectomes[from_area][name], 
+															   from_area_winners, 
+															   area_to_area_beta,
+															   new_winners=area.new_winners,
+															   minimum_activation_input=minimum_activation_input)
+			else:
+				area.learning_rule.update_area_to_area_weights(self.connectomes[from_area][name], 
+															   from_area_winners, 
+															   area_to_area_beta,
+															   new_winners=area.new_winners)
+
+			# for i in area.new_winners:
+			# 	for j in from_area_winners:
+			# 		self.connectomes[from_area][name][j][i] *= (1.0 + area_to_area_beta)
+
 			if verbose:
-				print("Connectome of " + from_area + " to " + name + " is now:")
-				print(self.connectomes[from_area][name])
+				print(("Connectome of " + from_area + " to " + name + " is now:"))
+				print((self.connectomes[from_area][name]))
 			m += 1
 
 		# expand connectomes from other areas that did not fire into area
@@ -364,10 +532,12 @@ class Brain:
 			if other_area not in from_areas:
 				self.connectomes[other_area][name] = np.pad(self.connectomes[other_area][name], 
 					((0,0),(0,num_first_winners)), 'constant', constant_values=0)
+				# expand the connectomes from other areas to the new neurons that fired
 				for j in range(self.areas[other_area].w):
 					for i in range(area.w, area.new_w):
 						self.connectomes[other_area][name][j][i] = np.random.binomial(1, self.p)
 			# add num_first_winners rows, all bernoulli with probability p
+			# add them from target area to areas from
 			self.connectomes[name][other_area] = np.pad(self.connectomes[name][other_area],
 				((0, num_first_winners),(0, 0)), 'constant', constant_values=0)
 			columns = (self.connectomes[name][other_area]).shape[1]
@@ -375,8 +545,8 @@ class Brain:
 				for j in range(columns):
 					self.connectomes[name][other_area][i][j] = np.random.binomial(1, self.p)
 			if verbose:
-				print("Connectome of " + name + " to " + other_area + " is now:")
-				print(self.connectomes[name][other_area])
+				print(("Connectome of " + name + " to " + other_area + " is now:"))
+				print((self.connectomes[name][other_area]))
 
 		return num_first_winners
 
