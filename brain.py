@@ -35,8 +35,11 @@ class LearningRule:
 		if self.rule in ['hebb', 'oja']:
 			for i in new_winners:
 				for j in from_area_winners:
-					coefficient = 1.0 + beta if self.rule == 'hebb' else (1.0 + beta) * (1 - connectomes[j][i])
-					connectomes[j][i] = connectomes[j][i] + coefficient if self.rule == 'oja' else connectomes[j][i] * coefficient
+					coefficient = beta*connectomes[j][i]if self.rule == 'hebb' else beta*connectomes[j][i]*(1 - 0.01*connectomes[j][i]**2)
+					print("update_area_to_area_weights", self.rule, coefficient, "current weight:", connectomes[j][i])
+					if coefficient == 0:
+						print("update_area_to_area_weights", "Why was this zero?")
+					connectomes[j][i] = connectomes[j][i] + coefficient
 		elif self.rule == 'stdp':
 			for i in new_winners:
 				total_sum = 0
@@ -54,8 +57,13 @@ class LearningRule:
 	def update_stimulus_to_area_weights(self, connectomes, beta, new_winners=None, minimum_activation_input=0):
 		if self.rule in ['hebb', 'oja']:
 			for i in new_winners:
-				coefficient = 1.0 + beta if self.rule == 'hebb' else (1.0 + beta) * (1 - connectomes[i])
-				connectomes[i] = connectomes[i] * coefficient if self.rule == 'hebb' else connectomes[i] + coefficient
+				coefficient = beta*connectomes[i] if self.rule == 'hebb' else beta*connectomes[i]*(1 - 0.01*connectomes[i]**2)
+				print("update_stimulus_to_area_weights", self.rule, coefficient, "current weight:", connectomes[i])
+				if coefficient == 0:
+					print("update_stimulus_to_area_weights", "Why was this zero?")
+				connectomes[i] = connectomes[i] + coefficient
+				print("update_stimulus_to_area_weights", self.rule, coefficient, "new weight:", connectomes[i])
+
 		elif self.rule == 'stdp':
 			#todo fix
 			return
