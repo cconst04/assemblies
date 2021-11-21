@@ -24,7 +24,7 @@ def project_test(n=100000,k=317,p=0.01,beta=0.05):
 	viz.plot_weights(b.areas['A'].winners)
 	for i in range(200):
 		b.project({"stim":["A"]},{"A":["A"]})
-		b.get_winner_weights_stats()
+		print(b.get_winner_weights_stats())
 		viz.plot_weights(b.areas['A'].winners)
 		print((b.areas["A"].w))
 

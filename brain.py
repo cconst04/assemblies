@@ -584,7 +584,7 @@ class Brain:
 		stats = {
 			'avg_weight_per_synapse': sum(avg_weight_per_synapse) / len(avg_weight_per_synapse),
 			'avg_input_per_winner': sum(total_input) / len(total_input),
-			'avg_edges_per_winner': sum(total_edges) / len(total_edges),
+			'avg_input_edges_per_winner': sum(total_edges) / len(total_edges),
 			'min_winner_input': min(winner_inputs),
 			'max_winner_input': max(winner_inputs),
 			'winner_inputs_variance': np.var(total_input),
