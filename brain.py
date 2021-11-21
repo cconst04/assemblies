@@ -21,13 +21,13 @@ class LearningRule:
 	Handles the updates of the synaptic weights.
 	In case of stdp, 1 +/- beta is the maximum or minimum value a synaptic update can have
 	"""
-	def __init__(self, rule='hebb', punish_beta=None, **kwargs):
+	def __init__(self, rule='hebb', punish_beta=None, time_function=None, reward_ratio=None, **kwargs):
 		# if rule not in ['hebb', 'oja', 'stdp']:
 		# 	raise Exception('Rule not found')
 		self.rule = rule
 		self.punish_beta = punish_beta
-		self.time_function = kwargs.get('time_function')
-		self.reward_ratio = kwargs.get('reward_ratio')
+		self.time_function = time_function
+		self.reward_ratio = reward_ratio
 				
 	def update_stdp_sum(self, area_connectomes, stimuli_connectomes, from_area_winners, beta, new_winners, minimum_activation_input=0):
 		"""
@@ -39,7 +39,7 @@ class LearningRule:
 			cum_sum = 0
 			all_coefficients = []
 			# update the connectomes first
-			for position_j, j in enumerate(from_area_winners):
+			for position_j, j in enumerate(sorted(from_area_winners)):
 				cum_sum += area_connectomes[j][i]
 				# is_late = position_j > len(from_area_winners) / 2
 				is_late = cum_sum > minimum_activation_input
@@ -70,23 +70,6 @@ class LearningRule:
  						coefficient = (1 + beta) * (connectomes[j][i] - connectomes[j][i] ** 3)
  						connectomes[j][i] *= coefficient
  						print(coefficient)
-
-		elif self.rule == 'stdp':
-			for idx, i in enumerate(new_winners):
-				total_sum = 0
-				for j in from_area_winners:
-					total_sum += connectomes[j][i]
-				cum_sum = 0
-				all_coefficients = []
-				for position_j, j in enumerate(from_area_winners):
-					cum_sum += connectomes[j][i]
-					# is_late = position_j > len(from_area_winners) / 2
-					is_late = cum_sum > minimum_activation_input
-					coefficient = self._time_reward(position_j, is_late, beta, punish_beta=self.punish_beta)
-					all_coefficients.append(coefficient)
-					connectomes[j][i] *= coefficient
-					# print(coefficient)
-				print(f'{total_sum},{minimum_activation_input}')
 		elif self.rule == 'stdpv2':
 			for idx, i in enumerate(new_winners):
 				# dist = []
@@ -121,6 +104,10 @@ class LearningRule:
 			for i in new_winners:
 				coefficient = beta*connectomes[i] if self.rule == 'hebb' else beta*connectomes[i]*(1 - 0.01*connectomes[i]**2)
 				connectomes[i] = connectomes[i] + coefficient
+		elif self.rule == 'stdpv2':
+			for i in new_winners:
+				# split both for reward and punishment beta
+				connectomes[i] = connectomes[i] * (self.reward_ratio * (1 + beta) + (1 - self.reward_ratio) * (1 - self.punish_beta))
 
 
 	def _time_reward(self, position, is_late, beta, punish_beta=None):
@@ -558,6 +545,52 @@ class Brain:
 		return num_first_winners
 
 
+	def get_winner_weights_stats(self):
+		"""
+		returns stats about weights
+		"""
+		# harcoded area and stimulus for now!
+		area = 'A'
+		connectomes = self.connectomes[area][area]
+		# SOS i assume that there is only 1 stimulus called stim
+		stimuli_connectome = self.stimuli_connectomes['stim'][area]
+		pairs = []
+		total_edges = []
+		total_input = [0] * self.areas[area].w
+		avg_weight_per_synapse = []
+		# get all the pairs of winners and check for synapses
+		for winner_i in range(self.areas[area].w):
+			edges = 0
+			for winner_j in range(self.areas[area].w):
+				if connectomes[winner_j][winner_i]:
+					edges += 1
+				total_input[winner_i] += connectomes[winner_j][winner_i]
+			# ignoring cases there are no edges between area to itself. (In that case all the edges happen to be in the stimulus)
+			if edges > 0:
+				avg_weight_per_synapse.append(total_input[winner_i] / edges)
+			total_input[winner_i] += stimuli_connectome[winner_i]
+
+		# count edges within the assemblies
+		for winner_i in self.areas[area].winners:
+			edges = 0
+			for winner_j in self.areas[area].winners:
+				if connectomes[winner_j][winner_i] > 0:
+					edges += 1
+					pairs.append((winner_j, winner_i))
+			total_edges.append(edges)
+			# average weight without the stimulus
+		winner_inputs = [total_input[winner] for winner in self.areas[area].winners]	
+		# take average of average weight per synapse
+		stats = {
+			'avg_weight_per_synapse': sum(avg_weight_per_synapse) / len(avg_weight_per_synapse),
+			'avg_input_per_winner': sum(total_input) / len(total_input),
+			'avg_edges_per_winner': sum(total_edges) / len(total_edges),
+			'min_winner_input': min(winner_inputs),
+			'max_winner_input': max(winner_inputs),
+			'winner_inputs_variance': np.var(total_input),
+			'total_edges': sum(total_edges)
+		}
+		return stats
 
 
 
