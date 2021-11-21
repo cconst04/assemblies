@@ -9,12 +9,31 @@ import matplotlib.pyplot as plt
 from collections import OrderedDict
 from visualization import Visualizer
 
+
+
+
+def project_test(n=100000,k=317,p=0.01,beta=0.05):
+	viz = Visualizer()
+	b = brain.Brain(p)
+	b.add_stimulus("stim",k)
+	# b.add_area("A", n, k, beta, learning_rule='stdpv2', time_function='step', punish_beta=beta/2, reward_ratio=0.5)
+	b.add_area("A", n, k, beta, learning_rule='stdp', time_function='step', punish_beta=beta/2)
+	# b.add_area("A", n, k, beta, learning_rule='oja')
+	# b.add_area("A", n, k, beta, learning_rule='hebb')
+	b.project({"stim":["A"]},{})
+	viz.plot_weights(b.areas['A'].winners)
+	for i in range(200):
+		b.project({"stim":["A"]},{"A":["A"]})
+		viz.plot_weights(b.areas['A'].winners)
+		print((b.areas["A"].w))
+
+
 def fixed_assembly_test(n=100000,k=317,p=0.01,beta=0.05):
 	viz = Visualizer()
 	b = brain.Brain(p)
 	b.add_stimulus("stim",k)
 	b.add_area("A", n, k, beta, learning_rule='hebb')
-	# b.add_area("A", n, k, beta, learning_rule='stdp', time_function='step')
+	# b.add_area("A", n, k, beta, learning_rule='stdpv2', time_function='step')
 	b.project({"stim":["A"]},{})
 	viz.plot_weights(b.areas['A'].winners)
 	for i in range(100):
@@ -33,9 +52,8 @@ def fixed_assembly_test(n=100000,k=317,p=0.01,beta=0.05):
 def explicit_assembly_test():
 	b = brain.Brain(0.5)
 	b.add_stimulus("stim",3)
-	b.add_explicit_area("A",10,3,beta=0.5)
+	b.add_explicit_area("A",10,3,beta=0.5, learning_rule='hebb')
 	b.add_area("B",10,3,beta=0.5)
-
 	print((b.stimuli_connectomes["stim"]["A"]))
 	print((b.connectomes["A"]["A"]))
 	print((b.connectomes["A"]["B"].shape))
@@ -43,11 +61,12 @@ def explicit_assembly_test():
 
 	# Now test projection stimulus -> explicit area
 	print("Project stim->A")
-	b.project({"stim":["A"]},{})
+	# b.project({"stim":["A"]},{})
 	print((b.areas["A"].winners))
 	print((b.stimuli_connectomes["stim"]["A"]))
 	# Now test projection stimulus, area -> area
-	b.project({"stim":["A"]},{"A":["A"]})
+	for _ in range(20):
+		b.project({"stim":["A"]},{"A":["A"]})
 	print((b.areas["A"].winners))
 	print((b.stimuli_connectomes["stim"]["A"]))
 	print((b.connectomes["A"]["A"]))
@@ -77,9 +96,8 @@ def explicit_assembly_test2(rounds=20):
 	b.areas["A"].winners = list(range(10,20))
 	b.areas["A"].fix_assembly()
 	b.project({}, {"A": ["B"]})
-	for _ in range(rounds):
-		b.project({}, {"A": ["B"], "B": ["A", "B"]})
-		print((b.areas["B"].w))
+	b.project({}, {"A": ["B"], "B": ["A", "B"]})
+	print((b.areas["B"].w))
 
 	b.areas["A"].unfix_assembly()
 	b.project({}, {"B": ["A"]})
@@ -98,5 +116,5 @@ def explicit_assembly_recurrent():
 	b.areas["A"].winners = list(range(60,70))
 
 if __name__ == '__main__':
-	fixed_assembly_test()
+	project_test()
 

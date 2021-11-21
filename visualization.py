@@ -49,3 +49,11 @@ class Visualizer:
 		plt.axvline(x=smallest_winner_input, color='r', linestyle='dashed', linewidth=2)
 		plt.show(block=False)
 		plt.pause(0.1)
+
+	def plot_coefficients(self, coefficients, smallest_winner_input):
+		plt.figure(300)
+		plt.clf()
+		plt.axvline(x=smallest_winner_input, color='r', linestyle='dashed', linewidth=2)
+		plt.scatter([i for i in range(len(coefficients))], coefficients)
+		plt.show()
+		# plt.pause(0.1)
