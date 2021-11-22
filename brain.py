@@ -36,9 +36,9 @@ class LearningRule:
 			for i in new_winners:
 				for j in from_area_winners:
 					coefficient = beta*connectomes[j][i]if self.rule == 'hebb' else beta*connectomes[j][i]*(1 - 0.01*connectomes[j][i]**2)
-					print("update_area_to_area_weights", self.rule, coefficient, "current weight:", connectomes[j][i])
-					if coefficient == 0:
-						print("update_area_to_area_weights", "Why was this zero?")
+					# print("update_area_to_area_weights", self.rule, coefficient, "current weight:", connectomes[j][i])
+					# if coefficient == 0:
+					# 	print("update_area_to_area_weights", "Why was this zero?")
 					connectomes[j][i] = connectomes[j][i] + coefficient
 		elif self.rule == 'stdp':
 			for i in new_winners:
@@ -58,11 +58,11 @@ class LearningRule:
 		if self.rule in ['hebb', 'oja']:
 			for i in new_winners:
 				coefficient = beta*connectomes[i] if self.rule == 'hebb' else beta*connectomes[i]*(1 - 0.01*connectomes[i]**2)
-				print("update_stimulus_to_area_weights", self.rule, coefficient, "current weight:", connectomes[i])
-				if coefficient == 0:
-					print("update_stimulus_to_area_weights", "Why was this zero?")
+				# print("update_stimulus_to_area_weights", self.rule, coefficient, "current weight:", connectomes[i])
+				# if coefficient == 0:
+				# 	print("update_stimulus_to_area_weights", "Why was this zero?")
 				connectomes[i] = connectomes[i] + coefficient
-				print("update_stimulus_to_area_weights", self.rule, coefficient, "new weight:", connectomes[i])
+				# print("update_stimulus_to_area_weights", self.rule, coefficient, "new weight:", connectomes[i])
 
 		elif self.rule == 'stdp':
 			#todo fix
@@ -233,7 +233,7 @@ class Brain:
 		self.connectomes[name] = new_connectomes
 
 	def add_explicit_area(self, name, n, k, beta, rule='hebb'):
-		self.areas[name] = Area(name, n, k, beta)
+		self.areas[name] = Area(name, n, k, beta, learning_rule=rule)
 		self.areas[name].explicit = True
 
 		for stim_name, stim_connectomes in list(self.stimuli_connectomes.items()):

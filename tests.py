@@ -16,10 +16,13 @@ def fixed_assembly_test(n=100000,k=317,p=0.01,beta=0.05):
 	b.add_area("A", n, k, beta, learning_rule='hebb')
 	# b.add_area("A", n, k, beta, learning_rule='stdp', time_function='step')
 	b.project({"stim":["A"]},{})
-	viz.plot_weights(b.areas['A'].winners)
+	viz.plot_weights(b.areas['A'].winners, b.connectomes['A']['A'])
+	print(b.areas['A'].winners)
+	print(b.connectomes)
 	for i in range(100):
 		b.project({"stim":["A"]},{"A":["A"]})
-		viz.plot_weights(b.areas['A'].winners)
+		viz.plot_weights(b.areas['A'].winners, b.connectomes['A']['A'])
+		print(b.areas['A'].winners)
 		print((b.areas["A"].w))
 	b.areas["A"].fix_assembly()
 	for i in range(5):
