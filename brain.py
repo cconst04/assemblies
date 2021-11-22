@@ -50,7 +50,7 @@ class LearningRule:
 			stimulus_reward_part = minimum_activation_input - cum_sum
 			punish_part = stimuli_connectomes[i] - stimulus_reward_part
 			# print(f'rewarded:{stimulus_reward_part}, punished:{punish_part}, total_input:{cum_sum+stimuli_connectomes[i]} minimum_input:{minimum_activation_input}')
-			stimuli_connectomes[i] = stimulus_reward_part * (1 + beta) + punish_part * (1 - beta)
+			stimuli_connectomes[i] = stimulus_reward_part * (1 + beta) + punish_part * (1 - self.punish_beta)
 
 
 	def update_area_to_area_weights(self, connectomes, from_area_winners, beta, new_winners, minimum_activation_input=0):
