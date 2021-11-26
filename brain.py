@@ -21,13 +21,14 @@ class LearningRule:
 	Handles the updates of the synaptic weights.
 	In case of stdp, 1 +/- beta is the maximum or minimum value a synaptic update can have
 	"""
-	def __init__(self, rule='hebb', punish_beta=None, time_function=None, reward_ratio=None, **kwargs):
+	def __init__(self, rule='hebb', punish_beta=None, time_function=None, reward_ratio=None, alpha=None, **kwargs):
 		# if rule not in ['hebb', 'oja', 'stdp']:
 		# 	raise Exception('Rule not found')
 		self.rule = rule
 		self.punish_beta = punish_beta
 		self.time_function = time_function
 		self.reward_ratio = reward_ratio
+		self.alpha = alpha
 				
 	def update_stdp_sum(self, area_connectomes, stimuli_connectomes, from_area_winners, beta, new_winners, minimum_activation_input=0):
 		"""
@@ -35,6 +36,9 @@ class LearningRule:
 		First it takes the cumulative sum of the connectomes and rewards them if their cumulative sum is less than the input of the winners.
 		For the remaining input coming from the stimulus that is less than minimum activation input it rewards it and the rest is punished
 		"""
+		if self.punish_beta is None:
+			self.punish_beta = beta
+
 		for idx, i in enumerate(new_winners):
 			cum_sum = 0
 			all_coefficients = []
@@ -60,16 +64,8 @@ class LearningRule:
 		if self.rule in ['hebb', 'oja']:
 			for i in new_winners:
 				for j in from_area_winners:
-					coefficient = beta*connectomes[j][i]if self.rule == 'hebb' else beta*connectomes[j][i]*(1 - 0.01*connectomes[j][i]**2)
+					coefficient = beta*connectomes[j][i] if self.rule == 'hebb' else beta*connectomes[j][i]*(1 - self.alpha*connectomes[j][i]**2)
 					connectomes[j][i] = connectomes[j][i] + coefficient
-		elif self.rule == 'oja_test':
-			for i in new_winners:
-				# y = sum([connectomes[j][i] for j in from_area_winners])
-				for j in from_area_winners:
-					if connectomes[j][i] > 0:
- 						coefficient = (1 + beta) * (connectomes[j][i] - connectomes[j][i] ** 3)
- 						connectomes[j][i] *= coefficient
- 						print(coefficient)
 		elif self.rule == 'stdpv2':
 			for idx, i in enumerate(new_winners):
 				# dist = []
@@ -102,7 +98,7 @@ class LearningRule:
 		"""
 		if self.rule in ['hebb', 'oja']:
 			for i in new_winners:
-				coefficient = beta*connectomes[i] if self.rule == 'hebb' else beta*connectomes[i]*(1 - 0.01*connectomes[i]**2)
+				coefficient = beta*connectomes[i] if self.rule == 'hebb' else beta*connectomes[i]*(1 - self.alpha*connectomes[i]**2)
 				connectomes[i] = connectomes[i] + coefficient
 		elif self.rule == 'stdpv2':
 			for i in new_winners:

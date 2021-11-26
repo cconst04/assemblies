@@ -29,20 +29,22 @@ class Visualizer:
 			overlap_pct = 0
 		arr_plot = np.zeros((DIM, DIM))
 		coords = []
-		for winner in mapped_winners:
-			coords.append([winner // DIM, winner % DIM, 2 if winner in consecutive_winners else 1])				
-			# arr_plot[winner // DIM][winner % DIM] = 2 if winner in consecutive_winners else 1
-		coords = np.array(coords)
-		plt.figure(200)
-		plt.clf()
-		plt.title(f'{len(consecutive_winners)} overlap: {overlap_pct}')
-		plt.scatter(coords[:, 0], coords[:, 1], c=coords[:, 2])
-		plt.show(block=False)
-		plt.pause(0.1)
+		# for winner in mapped_winners:
+		# 	coords.append([winner // DIM, winner % DIM, 2 if winner in consecutive_winners else 1])				
+		# 	# arr_plot[winner // DIM][winner % DIM] = 2 if winner in consecutive_winners else 1
+		# coords = np.array(coords)
+		# plt.figure(200)
+		# plt.clf()
+		# plt.title(f'{len(consecutive_winners)} overlap: {overlap_pct}')
+		# plt.scatter(coords[:, 0], coords[:, 1], c=coords[:, 2])
+		# plt.show(block=False)
+		# plt.pause(0.1)
 		self.winners_history.append(set(mapped_winners))
+		self.overlap_pct = overlap_pct
 
 
 	def plot_all_potential_winners(self, inputs, smallest_winner_input):
+		return
 		plt.figure(100)
 		plt.clf()
 		plt.hist(inputs)
@@ -51,6 +53,7 @@ class Visualizer:
 		plt.pause(0.1)
 
 	def plot_coefficients(self, coefficients, smallest_winner_input):
+		return
 		plt.figure(300)
 		plt.clf()
 		plt.axvline(x=smallest_winner_input, color='r', linestyle='dashed', linewidth=2)
