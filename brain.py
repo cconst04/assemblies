@@ -584,7 +584,7 @@ class Brain:
 			'min_winner_input': min(winner_inputs),
 			'max_winner_input': max(winner_inputs),
 			'winner_inputs_variance': np.var(total_input),
-			'total_edges': sum(total_edges)
+			'avg_vertex_degree': sum(total_edges) / (len(self.areas[area].winners)/2.0)
 		}
 		return stats
 
