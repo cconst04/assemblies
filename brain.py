@@ -489,11 +489,11 @@ class Brain:
 
 			# chris
 			# for now i'll use the first stimulus given
-			stim = from_stimuli[0]
 			kwargs = {}
 			if 'stdp' in area.learning_rule.rule:
 				kwargs['minimum_activation_input'] = minimum_activation_input
 			if area.learning_rule.rule == 'stdp':
+				stim = from_stimuli[0]
 				area.learning_rule.update_stdp_sum(self.connectomes[from_area][name],
 												   self.stimuli_connectomes[stim][name],
 												   from_area_winners,
