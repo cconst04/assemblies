@@ -336,7 +336,8 @@ RUSSIAN_READOUT_RULES = {
 }
 
 class ParserBrain(brain.Brain):
-	def __init__(self, p, lexeme_dict={}, all_areas=[], recurrent_areas=[], initial_areas=[], readout_rules={}):
+	def __init__(self, p, lexeme_dict={}, all_areas=[], recurrent_areas=[], initial_areas=[], readout_rules={},
+				 alpha=0.0, punish_beta=None, reward_ratio=1/2, learning_rule='oja'):
 		brain.Brain.__init__(self, p)
 		self.lexeme_dict = lexeme_dict
 		self.all_areas = all_areas
@@ -348,6 +349,10 @@ class ParserBrain(brain.Brain):
 		self.activated_fibers = defaultdict(set)
 		self.readout_rules = readout_rules
 		self.initialize_states()
+		self.alpha = alpha
+		self.punish_beta = punish_beta
+		self.reward_ratio = reward_ratio
+		self.learning_rule = learning_rule
 
 	def initialize_states(self):
 		for from_area in self.all_areas:
@@ -472,10 +477,18 @@ class RussianParserBrain(ParserBrain):
 		LEX_n = RUSSIAN_LEX_SIZE * LEX_k
 		self.add_explicit_area(LEX, LEX_n, LEX_k, default_beta)
 
-		self.add_area(NOM, non_LEX_n, non_LEX_k, default_beta)
-		self.add_area(ACC, non_LEX_n, non_LEX_k, default_beta)
-		self.add_area(VERB, non_LEX_n, non_LEX_k, default_beta)
-		self.add_area(DAT, non_LEX_n, non_LEX_k, default_beta)
+		self.add_area(NOM, non_LEX_n, non_LEX_k, default_beta,
+						alpha=self.alpha, punish_beta=self.punish_beta,
+						reward_ratio=self.reward_ratio, learning_rule=self.learning_rule)
+		self.add_area(ACC, non_LEX_n, non_LEX_k, default_beta,
+						alpha=self.alpha, punish_beta=self.punish_beta,
+						reward_ratio=self.reward_ratio, learning_rule=self.learning_rule)
+		self.add_area(VERB, non_LEX_n, non_LEX_k, default_beta,
+						alpha=self.alpha, punish_beta=self.punish_beta,
+						reward_ratio=self.reward_ratio, learning_rule=self.learning_rule)
+		self.add_area(DAT, non_LEX_n, non_LEX_k, default_beta,
+						alpha=self.alpha, punish_beta=self.punish_beta,
+						reward_ratio=self.reward_ratio, learning_rule=self.learning_rule)
 
 		# LEX: all areas -> * strong, * -> * can be strong
 		# non LEX: other areas -> * (?), LEX -> * strong, * -> * weak
@@ -508,14 +521,30 @@ class EnglishParserBrain(ParserBrain):
 		self.add_explicit_area(LEX, LEX_n, LEX_k, default_beta)
 
 		DET_k = LEX_k
-		self.add_area(SUBJ, non_LEX_n, non_LEX_k, default_beta)
-		self.add_area(OBJ, non_LEX_n, non_LEX_k, default_beta)
-		self.add_area(VERB, non_LEX_n, non_LEX_k, default_beta)
-		self.add_area(ADJ, non_LEX_n, non_LEX_k, default_beta)
-		self.add_area(PREP, non_LEX_n, non_LEX_k, default_beta)
-		self.add_area(PREP_P, non_LEX_n, non_LEX_k, default_beta)
-		self.add_area(DET, non_LEX_n, DET_k, default_beta)
-		self.add_area(ADVERB, non_LEX_n, non_LEX_k, default_beta)
+		self.add_area(SUBJ, non_LEX_n, non_LEX_k, default_beta,
+						alpha=self.alpha, punish_beta=self.punish_beta,
+						reward_ratio=self.reward_ratio, learning_rule=self.learning_rule)
+		self.add_area(OBJ, non_LEX_n, non_LEX_k, default_beta,
+						alpha=self.alpha, punish_beta=self.punish_beta,
+						reward_ratio=self.reward_ratio, learning_rule=self.learning_rule)
+		self.add_area(VERB, non_LEX_n, non_LEX_k, default_beta,
+						alpha=self.alpha, punish_beta=self.punish_beta,
+						reward_ratio=self.reward_ratio, learning_rule=self.learning_rule)
+		self.add_area(ADJ, non_LEX_n, non_LEX_k, default_beta,
+						alpha=self.alpha, punish_beta=self.punish_beta,
+						reward_ratio=self.reward_ratio, learning_rule=self.learning_rule)
+		self.add_area(PREP, non_LEX_n, non_LEX_k, default_beta,
+						alpha=self.alpha, punish_beta=self.punish_beta,
+						reward_ratio=self.reward_ratio, learning_rule=self.learning_rule)
+		self.add_area(PREP_P, non_LEX_n, non_LEX_k, default_beta,
+						alpha=self.alpha, punish_beta=self.punish_beta,
+						reward_ratio=self.reward_ratio, learning_rule=self.learning_rule)
+		self.add_area(DET, non_LEX_n, DET_k, default_beta,
+						alpha=self.alpha, punish_beta=self.punish_beta,
+						reward_ratio=self.reward_ratio, learning_rule=self.learning_rule)
+		self.add_area(ADVERB, non_LEX_n, non_LEX_k, default_beta,
+						alpha=self.alpha, punish_beta=self.punish_beta,
+						reward_ratio=self.reward_ratio, learning_rule=self.learning_rule)
 
 		# LEX: all areas -> * strong, * -> * can be strong
 		# non LEX: other areas -> * (?), LEX -> * strong, * -> * weak
@@ -724,6 +753,9 @@ def parseHelper(b, sentence, p, LEX_k, project_rounds, verbose, debug,
 				proj_map = b.getProjectMap()
 				print("Got proj_map = ")
 				print(proj_map)
+				for from_area in proj_map:
+					for to_area in proj_map[from_area]:
+						print(from_area, to_area, b.get_winner_weights_stats(from_area=from_area, to_area=to_area))
 			if extreme_debug and word == "a":
 				print(("Starting debugger after round " + str(i) + "for word" + word))
 				debugger.run()
@@ -805,7 +837,7 @@ def parseHelper(b, sentence, p, LEX_k, project_rounds, verbose, debug,
 
 
 def main():
-    parse()
+    parse(project_rounds=20)
 
 if __name__ == "__main__":
     main()
