@@ -541,41 +541,43 @@ class Brain:
 		return num_first_winners
 
 
-	def get_winner_weights_stats(self):
+	def get_winner_weights_stats(self, from_area = 'A', to_area = 'A'):
 		"""
 		returns stats about weights
 		"""
 		# harcoded area and stimulus for now!
-		area = 'A'
-		connectomes = self.connectomes[area][area]
+		connectomes = self.connectomes[from_area][to_area]
 		# SOS i assume that there is only 1 stimulus called stim
-		stimuli_connectome = self.stimuli_connectomes['stim'][area]
+		stimuli_connectome = None
+		if 'stim' in self.stimuli_connectomes:
+			stimuli_connectome = self.stimuli_connectomes['stim'][from_area]
 		pairs = []
 		total_edges = []
-		total_input = [0] * self.areas[area].w
+		total_input = [0] * self.areas[from_area].w
 		avg_weight_per_synapse = []
 		# get all the pairs of winners and check for synapses
-		for winner_i in range(self.areas[area].w):
+		for winner_i in range(self.areas[from_area].w):
 			edges = 0
-			for winner_j in range(self.areas[area].w):
-				if connectomes[winner_j][winner_i]:
+			for winner_j in range(self.areas[to_area].w):
+				if connectomes[winner_i][winner_j]:
 					edges += 1
-				total_input[winner_i] += connectomes[winner_j][winner_i]
+				total_input[winner_i] += connectomes[winner_i][winner_j]
 			# ignoring cases there are no edges between area to itself. (In that case all the edges happen to be in the stimulus)
 			if edges > 0:
 				avg_weight_per_synapse.append(total_input[winner_i] / edges)
-			total_input[winner_i] += stimuli_connectome[winner_i]
+			if stimuli_connectome is not None:
+				total_input[winner_i] += stimuli_connectome[winner_i]
 
 		# count edges within the assemblies
-		for winner_i in self.areas[area].winners:
+		for winner_i in self.areas[from_area].winners:
 			edges = 0
-			for winner_j in self.areas[area].winners:
-				if connectomes[winner_j][winner_i] > 0:
+			for winner_j in self.areas[to_area].winners:
+				if connectomes[winner_i][winner_j] > 0:
 					edges += 1
-					pairs.append((winner_j, winner_i))
+					pairs.append((winner_i, winner_j))
 			total_edges.append(edges)
 			# average weight without the stimulus
-		winner_inputs = [total_input[winner] for winner in self.areas[area].winners]	
+		winner_inputs = [total_input[winner] for winner in self.areas[from_area].winners]
 		# take average of average weight per synapse
 		stats = {
 			'avg_weight_per_synapse': sum(avg_weight_per_synapse) / len(avg_weight_per_synapse),
@@ -584,7 +586,7 @@ class Brain:
 			'min_winner_input': min(winner_inputs),
 			'max_winner_input': max(winner_inputs),
 			'winner_inputs_variance': np.var(total_input),
-			'avg_vertex_degree': sum(total_edges) / (len(self.areas[area].winners)/2.0)
+			'avg_vertex_degree': sum(total_edges) / (len(self.areas[from_area].winners)/2.0)
 		}
 		return stats
 
