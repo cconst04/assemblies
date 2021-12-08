@@ -578,6 +578,7 @@ class Brain:
 		"""
 		returns stats about weights
 		"""
+		print("get_winner_weights_stats start")
 		# harcoded area and stimulus for now!
 		connectomes = self.connectomes[from_area][to_area]
 		# SOS i assume that there is only 1 stimulus called stim
@@ -589,49 +590,72 @@ class Brain:
 		total_input = [0] * self.areas[from_area].w
 		avg_weight_per_synapse = []
 		# get all the pairs of winners and check for synapses
-		for winner_i in self.areas[from_area].winners:
-			edges = 0
-			for winner_j in self.areas[to_area].winners:
-				if connectomes[winner_i][winner_j]:
-					edges += 1
-				total_input[winner_i] += connectomes[winner_i][winner_j]
-			# ignoring cases there are no edges between area to itself. (In that case all the edges happen to be in the stimulus)
-			if edges > 0:
-				avg_weight_per_synapse.append(total_input[winner_i] / edges)
-			if stimuli_connectome is not None:
-				total_input[winner_i] += stimuli_connectome[winner_i]
+		print("get_winner_weights_stats start winner_i in self.areas[from_area].winners")
+		i_s = np.expand_dims(np.isin(np.arange(connectomes.shape[0]), self.areas[from_area].winners), 1)
+		j_s = np.expand_dims(np.isin(np.arange(connectomes.shape[1]), self.areas[to_area].winners), 0)
+		mask = np.logical_and(i_s, j_s)
+		connectomes_masked = connectomes*mask
+		num_edges = (connectomes_masked > 0).sum(axis=0)
+		# updated_weights = connectomes + beta * connectomes * (1 - self.alpha * connectomes ** 2)
+		# np.putmask(connectomes, mask, updated_weights)
+
+		# for winner_i in self.areas[from_area].winners:
+		# 	edges = 0
+		# 	for winner_j in self.areas[to_area].winners:
+		# 		if connectomes[winner_i][winner_j]:
+		# 			edges += 1
+		# 		total_input[winner_i] += connectomes[winner_i][winner_j]
+		# 	# ignoring cases there are no edges between area to itself. (In that case all the edges happen to be in the stimulus)
+		# 	if edges > 0:
+		# 		avg_weight_per_synapse.append(total_input[winner_i] / edges)
+		# 	if stimuli_connectome is not None:
+		# 		total_input[winner_i] += stimuli_connectome[winner_i]
+		print("i_s.shape", i_s.shape, "j_s.shape", j_s.shape, "np.sum(mask, axis=0).shape", np.sum(mask, axis=0).shape)
 
 		# count edges within the assemblies
-		for winner_i in self.areas[from_area].winners:
-			edges = 0
-			for winner_j in self.areas[to_area].winners:
-				if connectomes[winner_i][winner_j] > 0:
-					edges += 1
-					pairs.append((winner_i, winner_j))
-			total_edges.append(edges)
-			# average weight without the stimulus
+		print("get_winner_weights_stats start again winner_i in self.areas[from_area].winners")
+		# for winner_i in self.areas[from_area].winners:
+		# 	edges = 0
+		# 	for winner_j in self.areas[to_area].winners:
+		# 		if connectomes[winner_i][winner_j] > 0:
+		# 			edges += 1
+		# 			pairs.append((winner_i, winner_j))
+		# 	total_edges.append(edges)
+		# 	# average weight without the stimulus
+		total_edges_np = np.sum(num_edges)
+		print("sum(total_edges)", sum(total_edges), "total_edges_np", total_edges_np)
 		assembly_edges = 0.0
-		for i in range(len(connectomes)):
-			for j in range(len(connectomes[i])):
-				if connectomes[i][j] > 0:
-					assembly_edges += 1.0
-		k_subgraph_density = sum(total_edges) / (len(self.areas[from_area].winners) * (len(self.areas[from_area].winners)-1))
+		print("get_winner_weights_stats start for i in range(len(connectomes))")
+		i_s = np.expand_dims(np.arange(connectomes.shape[0]), 1)
+		j_s = np.expand_dims(np.arange(connectomes.shape[1]), 0)
+		mask = np.logical_and(i_s, j_s)
+		connectomes_masked = connectomes*mask
+		assembly_edges_np = (connectomes_masked > 0).sum()
+		# for i in range(len(connectomes)):
+		# 	for j in range(len(connectomes[i])):
+		# 		if connectomes[i][j] > 0:
+		# 			assembly_edges += 1.0
+
+		# print("assembly_edges", assembly_edges, "assembly_edges_np", assembly_edges_np)
+
+		k_subgraph_density = total_edges_np / (len(self.areas[from_area].winners) * (len(self.areas[from_area].winners)-1))
 		area_density = self.p # assembly_edges / (self.areas[from_area].n * (self.areas[from_area].n - 1))
-		winner_inputs = [total_input[winner] for winner in self.areas[from_area].winners]
+		# winner_inputs = [total_input[winner] for winner in self.areas[from_area].winners]
 		# take average of average weight per synapse
 		stats = {
-			'avg_weight_per_synapse': sum(avg_weight_per_synapse) / len(avg_weight_per_synapse),
-			'avg_input_per_winner': sum(total_input) / len(total_input),
-			'avg_input_edges_per_winner': sum(total_edges) / len(total_edges),
-			'min_winner_input': min(winner_inputs),
-			'max_winner_input': max(winner_inputs),
-			'winner_inputs_variance': np.var(total_input),
-			'avg_k_subgraph_vertex_degree': sum(total_edges) / (len(self.areas[from_area].winners)/2.0),
+			# 'avg_weight_per_synapse': sum(avg_weight_per_synapse) / len(avg_weight_per_synapse),
+			# 'avg_input_per_winner': sum(total_input) / len(total_input),
+			# 'avg_input_edges_per_winner': sum(total_edges) / len(total_edges),
+			# 'min_winner_input': min(winner_inputs),
+			# 'max_winner_input': max(winner_inputs),
+			# 'winner_inputs_variance': np.var(total_input),
+			'avg_k_subgraph_vertex_degree': total_edges_np / (len(self.areas[from_area].winners)/2.0),
 			'avg_total_vertex_degree': assembly_edges / (self.areas[from_area].n / 2.0),
 			'k_subgraph_density': k_subgraph_density,
 			'area_density': area_density,
 			'density_ratio': k_subgraph_density / area_density,
 		}
+		print("get_winner_weights_stats done")
 		return stats
 
 
