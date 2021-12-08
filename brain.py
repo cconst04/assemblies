@@ -29,7 +29,7 @@ class LearningRule:
 		self.time_function = time_function
 		self.reward_ratio = reward_ratio
 		self.alpha = alpha
-				
+
 	def update_stdp_sum(self, area_connectomes, stimuli_connectomes, from_area_winners, beta, new_winners, minimum_activation_input=0):
 		"""
 		Updates both the area to area connectomes and the stimulus to area connectomes for stdp with cumulative sum learning rule.
@@ -62,10 +62,19 @@ class LearningRule:
 		Stdp: for the ith presynaptic neuron reward only if the cumulative sum until i is <= the minimum input of all the winners
 		"""
 		if self.rule in ['hebb', 'oja']:
-			for i in new_winners:
-				for j in from_area_winners:
-					coefficient = beta*connectomes[j][i] if self.rule == 'hebb' else beta*connectomes[j][i]*(1 - self.alpha*connectomes[j][i]**2)
-					connectomes[j][i] = connectomes[j][i] + coefficient
+			# print(connectomes.shape, "j=", len(from_area_winners), "i=", len(new_winners))
+			i_s = np.expand_dims(np.isin(np.arange(connectomes.shape[1]), new_winners), 0)
+			j_s = np.expand_dims(np.isin(np.arange(connectomes.shape[0]), from_area_winners), 1)
+			mask = np.logical_and(j_s, i_s)
+			updated_weights = connectomes + beta*connectomes*(1 - self.alpha*connectomes**2)
+			np.putmask(connectomes, mask, updated_weights)
+			#
+			# connectomes[from_area_winners][new_winners] = connectomes[from_area_winners][new_winners] + beta*connectomes[from_area_winners][new_winners]*\
+			# 												(1 - self.alpha*connectomes[from_area_winners][new_winners]**2)
+			# for i in new_winners:
+			# 	for j in from_area_winners:
+			# 		coefficient = beta*connectomes[j][i] if self.rule == 'hebb' else beta*connectomes[j][i]*(1 - self.alpha*connectomes[j][i]**2)
+			# 		connectomes[j][i] = connectomes[j][i] + coefficient
 		elif self.rule == 'stdpv2':
 			for idx, i in enumerate(new_winners):
 				# dist = []
@@ -74,7 +83,7 @@ class LearningRule:
 				for j in from_area_winners:
 					if connectomes[j][i] > 0:
 						non_zero_indices.append(j)
-						# dist.append(connectomes[j][i]) 
+						# dist.append(connectomes[j][i])
 				# dist = dist / sum(dist)
 				to_reward = np.random.choice(non_zero_indices, size=int(len(non_zero_indices) * self.reward_ratio), replace=False)
 				to_punish = set(non_zero_indices).difference(set(to_reward))
@@ -93,7 +102,7 @@ class LearningRule:
 
 	def update_stimulus_to_area_weights(self, connectomes, beta, new_winners=None, minimum_activation_input=0):
 		"""
-		For stdp with cumulative sum it is handled in the update_stdp_sum method and for stdpv2 we assume 
+		For stdp with cumulative sum it is handled in the update_stdp_sum method and for stdpv2 we assume
 		that the amount of neurons punished in the stimulus is equal to the amount of neurons rewarded
 		"""
 		if self.rule in ['hebb', 'oja']:
@@ -118,7 +127,7 @@ class LearningRule:
 			if denominator > 0:
 				return min(1 + 1.0 / denominator, 1.0 + beta)
 			else:
-				return max(1 + 1.0 / denominator, (1.0 - beta))		
+				return max(1 + 1.0 / denominator, (1.0 - beta))
 
 
 
@@ -134,7 +143,7 @@ class Area:
 		# Betas from areas into this area.
 		self.area_beta = {}
 		self.w = 0
-		# List of winners currently (after previous action). Can be 
+		# List of winners currently (after previous action). Can be
 		# read by caller.
 		self.winners = []
 		self.new_w = 0
@@ -177,7 +186,7 @@ class Brain:
 		self.areas = {}
 		self.stimuli = {}
 		self.stimuli_connectomes = {}
-		self.connectomes = {} 
+		self.connectomes = {}
 		self.p = p
 		self.save_size = save_size
 		self.save_winners = save_winners
@@ -226,7 +235,7 @@ class Brain:
 		for key in self.areas:
 			if key == name:  # create explicitly
 				new_connectomes[key] = np.random.binomial(1, self.p, size=(n,n)) * 1.0
-			if key != name:  
+			if key != name:
 				if self.areas[key].explicit:
 					other_n = self.areas[key].n
 					new_connectomes[key] = np.random.binomial(1, self.p, size=(n, other_n)) * 1.0
@@ -244,7 +253,7 @@ class Brain:
 		# area_update_map consists of area1: list[ (area2, new_beta) ]
 		# represents new plasticity FROM area2 INTO area1
 		for to_area, update_rules in list(area_update_map.items()):
-			for (from_area, new_beta) in update_rules: 
+			for (from_area, new_beta) in update_rules:
 				self.areas[to_area].area_beta[from_area] = new_beta
 
 		# stim_update_map consists of area: list[ (stim, new_beta) ]f
@@ -298,7 +307,7 @@ class Brain:
 	# calculate: inputs to self.connectomes[area] (previous winners)
 	# calculate: potential new winners, Binomial(sum of in sizes, k-top)
 	# k top of previous winners and potential new winners
-	# if new winners > 0, redo connectome and intra_connectomes 
+	# if new winners > 0, redo connectome and intra_connectomes
 	# have to wait to replace new_winners
 		print(("Projecting " + ",".join(from_stimuli) + " and " + ",".join(from_areas) + " into " + area.name))
 
@@ -309,6 +318,7 @@ class Brain:
 		name = area.name
 		prev_winner_inputs = [0.] * area.w
 
+		print("part 1")
 		# update the previous winners input from the stimuli and connectomes from input areas
 		for stim in from_stimuli:
 			stim_inputs = self.stimuli_connectomes[stim][name]
@@ -317,8 +327,13 @@ class Brain:
 		for from_area in from_areas:
 			connectome = self.connectomes[from_area][name]
 			for w in self.areas[from_area].winners:
-				for i in range(area.w):
-					prev_winner_inputs[i] += connectome[w][i]
+				prev_winner_inputs_np = np.asarray(prev_winner_inputs)
+				prev_winner_inputs_np += connectome[w]
+				# for i in range(area.w):
+				# 	prev_winner_inputs[i] += connectome[w][i]
+				prev_winner_inputs = prev_winner_inputs_np.tolist()
+				# print("prev_winner_inputs.shape", len(prev_winner_inputs), " connectome[w].shape",  connectome[w].shape)
+				# prev_winner_inputs += connectome[w]
 		if verbose:
 			print("prev_winner_inputs: ")
 			print(prev_winner_inputs)
@@ -326,7 +341,7 @@ class Brain:
 
 		# add up the stimuli going into the area + the projecting from area winners?
 
-		# simulate area.k potential new winners if the area is not explicit 
+		# simulate area.k potential new winners if the area is not explicit
 		if not area.explicit:
 			total_k = 0
 			input_sizes = []
@@ -377,6 +392,7 @@ class Brain:
 		else:
 			all_potential_winners = prev_winner_inputs
 
+		print("part 2")
 
 		# pick k largest in this area
 		new_winner_indices = heapq.nlargest(area.k, list(range(len(all_potential_winners))), all_potential_winners.__getitem__)
@@ -414,6 +430,7 @@ class Brain:
 			print("new_winners: ")
 			print((area.new_winners))
 
+		print("part 3")
 		# for i in num_first_winners
 		# generate where input came from
 			# 1) can sample input from array of size total_k, use ranges
@@ -446,12 +463,12 @@ class Brain:
 				stim_to_area_beta = 0.0
 			# area.learning_rule.update_stimulus_to_area_weights(self.stimuli_connectomes[stim][name], area.new_winners, area.stimulus_beta[stim])
 			if 'stdp' in area.learning_rule.rule:
-				area.learning_rule.update_stimulus_to_area_weights(self.stimuli_connectomes[stim][name], 
+				area.learning_rule.update_stimulus_to_area_weights(self.stimuli_connectomes[stim][name],
 																   stim_to_area_beta,
 																   area.new_winners,
 																   minimum_activation_input=minimum_activation_input)
 			else:
-				area.learning_rule.update_stimulus_to_area_weights(self.stimuli_connectomes[stim][name], 
+				area.learning_rule.update_stimulus_to_area_weights(self.stimuli_connectomes[stim][name],
 															  	   stim_to_area_beta,
 															  	   area.new_winners)
 			# todo: change
@@ -462,6 +479,7 @@ class Brain:
 				print((self.stimuli_connectomes[stim][name]))
 			m += 1
 
+		print("part 4")
 		# !!!!!!!!!!!!!!!!
 		# BIG TO DO: Need to update connectomes for stim that are NOT in from_stimuli
 		# For example, if last round fired areas A->B, and stim has never been fired into B.
@@ -473,16 +491,25 @@ class Brain:
 		for from_area in from_areas:
 			from_area_w = self.areas[from_area].w
 			from_area_winners = self.areas[from_area].winners
-			self.connectomes[from_area][name] = np.pad(self.connectomes[from_area][name], 
+			self.connectomes[from_area][name] = np.pad(self.connectomes[from_area][name],
 				((0,0),(0,num_first_winners)), 'constant', constant_values=0)
+			sample_binomial = np.random.binomial(1, self.p, (from_area_w, area.w + num_first_winners))
 			for i in range(num_first_winners):
 				total_in = first_winner_to_inputs[i][m]
 				sample_indices = random.sample(from_area_winners, int(total_in))
-				for j in range(from_area_w):
-					if j in sample_indices:
-						self.connectomes[from_area][name][j][area.w+i] = 1.0
-					if j not in from_area_winners:
-						self.connectomes[from_area][name][j][area.w+i] = np.random.binomial(1, self.p)
+				j_s = np.arange(from_area_w)
+				# print(np.isin(j_s, sample_indices).shape, self.connectomes[from_area][name][:,area.w + i].shape)
+				self.connectomes[from_area][name][:,area.w + i] =\
+					np.where(np.isin(j_s, sample_indices), np.ones(self.connectomes[from_area][name][:,area.w + i].shape),
+						 self.connectomes[from_area][name][:,area.w + i])
+				self.connectomes[from_area][name][:,area.w + i] =\
+					np.where(np.isin(j_s, from_area_winners, invert=True), sample_binomial[:,area.w + i],
+						 self.connectomes[from_area][name][:,area.w + i])
+				# for j in range(from_area_w):
+				# 	if j in sample_indices:
+				# 		self.connectomes[from_area][name][j][area.w+i] = 1.0
+				# 	if j not in from_area_winners:
+				# 		self.connectomes[from_area][name][j][area.w+i] = np.random.binomial(1, self.p)
 			area_to_area_beta = area.area_beta[from_area]
 			if self.no_plasticity:
 				area_to_area_beta = 0.0
@@ -501,8 +528,9 @@ class Brain:
 												   new_winners=area.new_winners,
 												   **kwargs)
 			else:
-				area.learning_rule.update_area_to_area_weights(self.connectomes[from_area][name], 
-															   from_area_winners, 
+				print("update_area_to_area_weights")
+				area.learning_rule.update_area_to_area_weights(self.connectomes[from_area][name],
+															   from_area_winners,
 															   area_to_area_beta,
 															   new_winners=area.new_winners,
 															   **kwargs)
@@ -515,12 +543,13 @@ class Brain:
 				print(("Connectome of " + from_area + " to " + name + " is now:"))
 				print((self.connectomes[from_area][name]))
 			m += 1
+		print("part 5")
 
 		# expand connectomes from other areas that did not fire into area
 		# also expand connectome for area->other_area
 		for other_area in self.areas:
 			if other_area not in from_areas:
-				self.connectomes[other_area][name] = np.pad(self.connectomes[other_area][name], 
+				self.connectomes[other_area][name] = np.pad(self.connectomes[other_area][name],
 					((0,0),(0,num_first_winners)), 'constant', constant_values=0)
 				# expand the connectomes from other areas to the new neurons that fired
 				for j in range(self.areas[other_area].w):
@@ -531,13 +560,17 @@ class Brain:
 			self.connectomes[name][other_area] = np.pad(self.connectomes[name][other_area],
 				((0, num_first_winners),(0, 0)), 'constant', constant_values=0)
 			columns = (self.connectomes[name][other_area]).shape[1]
-			for i in range(area.w, area.new_w):
-				for j in range(columns):
-					self.connectomes[name][other_area][i][j] = np.random.binomial(1, self.p)
+
+			sample_binomial = np.random.binomial(1, self.p, (area.new_w, columns))
+			self.connectomes[name][other_area][area.w:area.new_w] = sample_binomial[area.w:area.new_w]
+			#
+			# for i in range(area.w, area.new_w):
+			# 	for j in range(columns):
+			# 		self.connectomes[name][other_area][i][j] = np.random.binomial(1, self.p)
 			if verbose:
 				print(("Connectome of " + name + " to " + other_area + " is now:"))
 				print((self.connectomes[name][other_area]))
-
+		print("part 6")
 		return num_first_winners
 
 

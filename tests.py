@@ -194,9 +194,10 @@ if __name__ == '__main__':
 	# run_tests(params, 'experiments/stdp_1.pickle')
 	params = {
 		'p': [0.01],
-		'k': [300],
-		'alpha': [0.01],
-		'beta': [0.05],
+		'n': [100000],
+		'k': [10000],
+		'alpha': [0.00],
+		'beta': [0.1],
 		'punish_beta': [0.025],
 		'reward_ratio': [0.9, 0.8, 0.7, 0.6, 0.5],
 		'learning_rule':['oja']
