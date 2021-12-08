@@ -558,7 +558,7 @@ class Brain:
 		# get all the pairs of winners and check for synapses
 		for winner_i in self.areas[to_area].winners:
 			edges = 0
-			for winner_j in range(self.areas[to_area].w):
+			for winner_j in self.areas[to_area].winners:
 				if connectomes[winner_i][winner_j]:
 					edges += 1
 				total_input[winner_i] += connectomes[winner_i][winner_j]
@@ -577,6 +577,13 @@ class Brain:
 					pairs.append((winner_i, winner_j))
 			total_edges.append(edges)
 			# average weight without the stimulus
+		assembly_edges = 0.0
+		for i in range(len(connectomes)):
+			for j in range(len(connectomes[i])):
+				if connectomes[i][j] > 0:
+					assembly_edges += 1.0
+		k_subgraph_density = sum(total_edges) / (len(self.areas[from_area].winners) * (len(self.areas[from_area].winners)-1))
+		area_density = self.p # assembly_edges / (self.areas[from_area].n * (self.areas[from_area].n - 1))
 		winner_inputs = [total_input[winner] for winner in self.areas[from_area].winners]
 		# take average of average weight per synapse
 		stats = {
@@ -586,8 +593,11 @@ class Brain:
 			'min_winner_input': min(winner_inputs),
 			'max_winner_input': max(winner_inputs),
 			'winner_inputs_variance': np.var(total_input),
-			'avg_vertex_degree': sum(total_edges) / (len(self.areas[from_area].winners)/2.0),
-			'density_ratio': sum(total_edges) / (self.areas[to_area].k * self.areas[to_area].k - 1) / p
+			'avg_k_subgraph_vertex_degree': sum(total_edges) / (len(self.areas[from_area].winners)/2.0),
+			'avg_total_vertex_degree': assembly_edges / (self.areas[from_area].n / 2.0),
+			'k_subgraph_density': k_subgraph_density,
+			'area_density': area_density,
+			'density_ratio': k_subgraph_density / area_density,
 		}
 		return stats
 
