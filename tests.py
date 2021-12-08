@@ -11,6 +11,7 @@ from visualization import Visualizer
 
 import pickle
 import itertools
+from math import isclose
 
 def project_test(n=100000,k=317,p=0.01,beta=0.05, alpha=None, punish_beta=None, reward_ratio=1/2, rounds=100, learning_rule='hebb'):
 	viz = Visualizer()
@@ -37,6 +38,13 @@ def project_test(n=100000,k=317,p=0.01,beta=0.05, alpha=None, punish_beta=None, 
 		result_stats['support'].append(b.areas['A'].w)
 		result_stats['overlap_pct'].append(viz.overlap_pct)
 		print(f"support:{b.areas['A'].w}, pct:{viz.overlap_pct}")
+		if isclose(result_stats['overlap_pct'][-1], 1.0):
+			# early stopping
+			print('early stopping')
+			for _ in range(rounds - i):
+				for key in result_stats:
+					result_stats[key].append(result_stats[key][-1])
+			return result_stats
 	return result_stats
 
 
@@ -193,14 +201,14 @@ if __name__ == '__main__':
 	# }
 	# run_tests(params, 'experiments/stdp_1.pickle')
 	params = {
-		'p': [0.01],
-		'n': [100000],
-		'k': [10000],
-		'alpha': [0.00],
+		'p': [0.001],
+		'n': [10**7],
+		'k': [10**4],
+		'alpha': [0],
 		'beta': [0.1],
 		'punish_beta': [0.025],
 		'reward_ratio': [0.9, 0.8, 0.7, 0.6, 0.5],
-		'learning_rule':['oja']
+		'learning_rule':['stdpv2']
 
 	}
 	run_tests(params, 'experiments/stdpv2_1.pickle')
