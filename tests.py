@@ -27,9 +27,8 @@ def project_test(n=100000,k=317,p=0.01,beta=0.05, alpha=None, punish_beta=None, 
 	for i in range(rounds):
 		print(f'round:{i}')
 		b.project({"stim":["A"]},{"A":["A"]})
-		# print(b.get_winner_weights_stats())
 		viz.plot_weights(b.areas['A'].winners)
-		stats = b.get_winner_weights_stats()
+		stats = b.get_winner_weights_stats(p)
 		for stat in stats:
 			if not stat in result_stats:
 				result_stats[stat] = []
@@ -159,16 +158,32 @@ def run_tests(params, fname):
 
 
 if __name__ == '__main__':
+	#hebb test 1
 	# params = {
-	# 	'p': [0.001, 0.003, 0.007, 0.015, 0.031, 0.063, 0.127, 0.255, 0.511],
-	# 	'k': [i for i in range(100, 1000, 100)],
-	# 	'alpha': [0.001, 0.003, 0.007, 0.015, 0.031, 0.063, 0.127, 0.255, 0.511],
-	# 	'beta': [0.001, 0.003, 0.007, 0.015, 0.031, 0.063, 0.127, 0.255, 0.511],
-	# 	'punish_beta': [0, 0.001, 0.003, 0.007, 0.015, 0.031, 0.063, 0.127, 0.255, 0.511],
-	# 	'reward_ratio': [0.3, 0.4, 0.5, 0.6, 0.7],
-	# 	'learning_rule':['hebb', 'stdp', 'stdpv2', 'oja']
+	# 	'p': [0.01],
+	# 	'k': [300],
+	# 	'alpha': [0],
+	# 	'beta': [0.05],
+	# 	'punish_beta': [0.01],
+	# 	'reward_ratio': [0.1],
+	# 	'learning_rule':['hebb']
 
 	# }
+	# run_tests(params, 'experiments/hebb.pickle')
+
+	#hebb test 2
+	# params = {
+	# 	'p': [0.005],
+	# 	'k': [300],
+	# 	'alpha': [0],
+	# 	'beta': [0.05],
+	# 	'punish_beta': [0.01],
+	# 	'reward_ratio': [0.1],
+	# 	'learning_rule':['hebb']
+
+	# }
+	# run_tests(params, 'experiments/hebb2.pickle')
+
 	#oja test 1
 	# params = {
 	# 	'p': [0.01],
@@ -180,28 +195,143 @@ if __name__ == '__main__':
 	# 	'learning_rule':['oja']
 
 	# }
-	# run_tests(params, 'experiments/oja1.pickle')
+	# run_tests(params, 'experiments/oja1_mod2.pickle')
+
+	#oja test 2
 	# params = {
-	# 	'p': [0.01],
+	# 	'p': [0.05],
 	# 	'k': [300],
+	# 	'alpha': [0.001, 0.002, 0.003, 0.005, 0.008, 0.01],
+	# 	'beta': [0.05],
+	# 	'punish_beta': [0.01],
+	# 	'reward_ratio': [0.1],
+	# 	'learning_rule':['oja']
+
+	# }
+	# run_tests(params, 'experiments/oja2.pickle')
+
+	#oja test 3
+	# params = {
+	# 	'n': [10**6],
+	# 	'p': [0.001],
+	# 	'k': [1000],
+	# 	'alpha': [0.001, 0.002, 0.003, 0.005, 0.008, 0.01],
+	# 	'beta': [0.1],
+	# 	'punish_beta': [0.01],
+	# 	'reward_ratio': [0.1],
+	# 	'learning_rule':['oja']
+
+	# }
+	# run_tests(params, 'experiments/oja3.pickle')
+
+	# oja test 4
+	# params = {
+	# 	'p': [0.001, 0.003, 0.005],
+	# 	'k': [300],
+	# 	'alpha': [0, 0.05],
+	# 	'beta': [0.05],
+	# 	'punish_beta': [0.01],
+	# 	'reward_ratio': [0.1],
+	# 	'learning_rule':['oja']
+
+	# }
+	# run_tests(params, 'experiments/oja4.pickle')
+
+	#oja test 5
+	# params = {
+	# 	'p': [0.001],
+	# 	'k': [100, 200, 300, 500, 700, 1000],
+	# 	'alpha': [0.05],
+	# 	'beta': [0.05],
+	# 	'punish_beta': [0.01],
+	# 	'reward_ratio': [0.1],
+	# 	'learning_rule':['oja']
+
+	# }
+	# run_tests(params, 'experiments/oja5.pickle')
+
+	# oja test 6
+	# params = {
+	# 	'p': [0.001],
+	# 	'k': [100, 500, 1000],
+	# 	'alpha': [0, 0.05],
+	# 	'beta': [0.05],
+	# 	'punish_beta': [0.01],
+	# 	'reward_ratio': [0.1],
+	# 	'learning_rule':['oja']
+
+	# }
+	# run_tests(params, 'experiments/oja6.pickle')
+
+	# oja test 7
+	# params = {
+	# 	'n': [10**6],
+	# 	'p': [0.001],
+	# 	'k': [1000],
+	# 	'alpha': [0.005],
+	# 	'beta': [0.01, 0.03, 0.05, 0.07, 0.1, 0.2],
+	# 	'punish_beta': [0.01],
+	# 	'reward_ratio': [0.1],
+	# 	'learning_rule':['oja']
+
+	# }
+	# run_tests(params, 'experiments/oja7.pickle')
+
+	# oja test 8
+	# params = {
+	# 	'n': [10 ** 7],
+	# 	'p': [0.001],
+	# 	'k': [10 ** 4],
+	# 	'alpha': [0.001, 0.002, 0.003, 0.005, 0.008, 0.01],
+	# 	'beta': [0.1],
+	# 	'punish_beta': [0.01],
+	# 	'reward_ratio': [0.1],
+	# 	'learning_rule':['oja']
+
+	# }
+	# run_tests(params, 'experiments/oja8.pickle')
+
+	# stdp test 1
+
+	# params = {
+	# 	'n': [10**6],
+	# 	'p': [0.001],
+	# 	'k': [1000],
 	# 	'alpha': [0.01],
-	# 	'beta': [0.01, 0.03, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5],
-	# 	'punish_beta': [None],
+	# 	'beta': [0.1],
+	# 	'punish_beta': [-0.1, -0.05, 0, 0.025, 0.05, 0.1, 0.2, 0.3, 0.4],
 	# 	'reward_ratio': [0.5],
 	# 	'learning_rule':['stdp']
 
 	# }
 	# run_tests(params, 'experiments/stdp_1.pickle')
+
+	# stdpv2 test 1
+
+	# params = {
+	# 	'n': [10**6],
+	# 	'p': [0.001],
+	# 	'k': [1000],
+	# 	'alpha': [0.01],
+	# 	'beta': [0.1],
+	# 	'punish_beta': [0.025],
+	# 	'reward_ratio': [1, 0.9, 0.8, 0.7, 0.6, 0.5],
+	# 	'learning_rule':['stdpv2']
+
+	# }
+	# run_tests(params, 'experiments/stdpv2_1.pickle')
+
+	# stdpv2 test 2
+
 	params = {
-		'p': [0.01],
-		'k': [300],
+		'n': [10**6],
+		'p': [0.001],
+		'k': [1000],
 		'alpha': [0.01],
-		'beta': [0.05],
-		'punish_beta': [0.025],
-		'reward_ratio': [0.9, 0.8, 0.7, 0.6, 0.5],
-		'learning_rule':['oja']
+		'beta': [0.1],
+		'punish_beta': [-0.05, 0, 0.01, 0.02, 0.03, 0.04],
+		'reward_ratio': [0.5],
+		'learning_rule':['stdpv2']
 
 	}
-	run_tests(params, 'experiments/stdpv2_1.pickle')
-
-
+	run_tests(params, 'experiments/stdpv2_2.pickle')

@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import random
-DIM = 100
+DIM = 1000
 class Visualizer:
 	def __init__(self):
 		self.winners_history = []

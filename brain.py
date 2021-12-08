@@ -541,7 +541,7 @@ class Brain:
 		return num_first_winners
 
 
-	def get_winner_weights_stats(self, from_area = 'A', to_area = 'A'):
+	def get_winner_weights_stats(self, p, from_area = 'A', to_area = 'A'):
 		"""
 		returns stats about weights
 		"""
@@ -556,7 +556,7 @@ class Brain:
 		total_input = [0] * self.areas[from_area].w
 		avg_weight_per_synapse = []
 		# get all the pairs of winners and check for synapses
-		for winner_i in range(self.areas[from_area].w):
+		for winner_i in self.areas[to_area].winners:
 			edges = 0
 			for winner_j in range(self.areas[to_area].w):
 				if connectomes[winner_i][winner_j]:
@@ -586,7 +586,8 @@ class Brain:
 			'min_winner_input': min(winner_inputs),
 			'max_winner_input': max(winner_inputs),
 			'winner_inputs_variance': np.var(total_input),
-			'avg_vertex_degree': sum(total_edges) / (len(self.areas[from_area].winners)/2.0)
+			'avg_vertex_degree': sum(total_edges) / (len(self.areas[from_area].winners)/2.0),
+			'density_ratio': sum(total_edges) / (self.areas[to_area].k * self.areas[to_area].k - 1) / p
 		}
 		return stats
 
