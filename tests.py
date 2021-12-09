@@ -37,7 +37,7 @@ def project_test(n=100000,k=317,p=0.01,beta=0.05, alpha=None, punish_beta=None, 
 			result_stats[stat].append(stats[stat])
 		result_stats['support'].append(b.areas['A'].w)
 		result_stats['overlap_pct'].append(viz.overlap_pct)
-		print(f"support:{b.areas['A'].w}, pct:{viz.overlap_pct}")
+		print(f"support:{b.areas['A'].w}, pct:{viz.overlap_pct}", result_stats)
 		if isclose(result_stats['overlap_pct'][-1], 1.0):
 			# early stopping
 			print('early stopping')
@@ -48,6 +48,50 @@ def project_test(n=100000,k=317,p=0.01,beta=0.05, alpha=None, punish_beta=None, 
 	return result_stats
 
 
+def project_merge_test(n=100000,k=317,p=0.01,beta=0.05, alpha=None, punish_beta=None, reward_ratio=1/2, rounds=100, learning_rule='hebb'):
+	viz = Visualizer()
+	b = brain.Brain(p)
+	b.add_stimulus("stimA",k)
+	b.add_stimulus("stimB",k)
+	b.add_area("A", n, k, beta, learning_rule=learning_rule, time_function='step', punish_beta=punish_beta, reward_ratio=reward_ratio, alpha=alpha)
+	b.add_area("B", n, k, beta, learning_rule=learning_rule, time_function='step', punish_beta=punish_beta, reward_ratio=reward_ratio, alpha=alpha)
+	b.add_area("C", n, k, beta, learning_rule=learning_rule, time_function='step', punish_beta=punish_beta, reward_ratio=reward_ratio, alpha=alpha)
+
+	# b.add_area("A", n, k, beta, learning_rule='stdp', time_function='step', punish_beta=beta/2)
+	# b.add_area("A", n, k, beta, learning_rule='oja')
+	# b.add_area("A", n, k, beta, learning_rule='hebb')
+	b.project({"stimA":["A"]},{})
+	b.project({"stimB":["B"]},{})
+
+	b.project({"stimA":["A"],"stimB":["B"]},
+		{"A":["A","C"],"B":["B","C"]})
+	b.project({"stimA":["A"],"stimB":["B"]},
+		{"A":["A","C"],"B":["B","C"],"C":["C","A","B"]})
+	viz.plot_weights(b.areas['A'].winners)
+	print(f'n:{n}, k:{k}, p:{p}, beta:{beta}, punish_beta:{punish_beta}, reward_ratio:{reward_ratio}')
+	result_stats = {'support':[], 'overlap_pct':[]}
+	for i in range(rounds):
+		print(f'round:{i}')
+		b.project({"stimA":["A"],"stimB":["B"]},
+			{"A":["A","C"],"B":["B","C"],"C":["C","A","B"]})
+		# print(b.get_winner_weights_stats())
+		viz.plot_weights(b.areas['C'].winners)
+		stats = b.get_winner_weights_stats(from_area = 'C', to_area = 'C')
+		for stat in stats:
+			if not stat in result_stats:
+				result_stats[stat] = []
+			result_stats[stat].append(stats[stat])
+		result_stats['support'].append(b.areas['C'].w)
+		result_stats['overlap_pct'].append(viz.overlap_pct)
+		print(f"support:{b.areas['A'].w}, pct:{viz.overlap_pct}", result_stats)
+		if isclose(result_stats['overlap_pct'][-1], 1.0):
+			# early stopping
+			print('early stopping')
+			for _ in range(rounds - i):
+				for key in result_stats:
+					result_stats[key].append(result_stats[key][-1])
+			return result_stats
+	return result_stats
 
 
 def fixed_assembly_test(n=100000,k=317,p=0.01,beta=0.05):
@@ -138,7 +182,7 @@ def explicit_assembly_recurrent():
 	b.areas["A"].winners = list(range(60,70))
 
 
-def run_tests(params, fname):
+def run_tests(params, fname, merge=False):
 	"""
 	Varying alpha and keeping all the other params constant
 	"""
@@ -154,7 +198,10 @@ def run_tests(params, fname):
 		kwargs = {}
 		for i in range(len(comb)):
 			kwargs[list(params.keys())[i]] = comb[i]
-		stats = project_test(**kwargs)
+		if merge:
+			stats = project_merge_test(**kwargs)
+		else:
+			stats = project_test(**kwargs)
 		res[str(kwargs)] = stats
 	# Store data (serialize)
 		with open(fname, 'wb') as handle:
@@ -200,17 +247,29 @@ if __name__ == '__main__':
 
 	# }
 	# run_tests(params, 'experiments/stdp_1.pickle')
+	# params = {
+	# 	# 'p': [0.001],
+	# 	# 'n': [10**7],
+	# 	# 'k': [10**4],
+	# 	'alpha': [0, 0.001, 0.002, 0.003, 0.005, 0.008, 0.01],
+	# 	'beta': [0.05],
+	# 	'punish_beta': [0.025],
+	# 	'reward_ratio': [0.9],
+	# 	'learning_rule':['oja']
+	#
+	# }
+	# run_tests(params, 'experiments/merge_small_oja.pickle', merge=True)
+
+
 	params = {
 		'p': [0.001],
 		'n': [10**7],
 		'k': [10**4],
-		'alpha': [0],
+		'alpha': [0.003, 0.005, 0.008, 0.01],
 		'beta': [0.1],
 		'punish_beta': [0.025],
-		'reward_ratio': [0.9, 0.8, 0.7, 0.6, 0.5],
-		'learning_rule':['stdpv2']
+		'reward_ratio': [0.9],
+		'learning_rule':['oja']
 
 	}
-	run_tests(params, 'experiments/stdpv2_1.pickle')
-
-
+	run_tests(params, 'experiments/large_oja2.pickle')
