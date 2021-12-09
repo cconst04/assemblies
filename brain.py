@@ -498,13 +498,13 @@ class Brain:
 				total_in = first_winner_to_inputs[i][m]
 				sample_indices = random.sample(from_area_winners, int(total_in))
 				j_s = np.arange(from_area_w)
-				# print(np.isin(j_s, sample_indices).shape, self.connectomes[from_area][name][:,area.w + i].shape)
-				self.connectomes[from_area][name][:,area.w + i] =\
-					np.where(np.isin(j_s, sample_indices), np.ones(self.connectomes[from_area][name][:,area.w + i].shape),
-						 self.connectomes[from_area][name][:,area.w + i])
-				self.connectomes[from_area][name][:,area.w + i] =\
-					np.where(np.isin(j_s, from_area_winners, invert=True), sample_binomial[:,area.w + i],
-						 self.connectomes[from_area][name][:,area.w + i])
+				# print(j_s.shape, np.isin(j_s, sample_indices).shape, area.w, i, self.connectomes[from_area][name][:,area.w + i].shape)
+				self.connectomes[from_area][name][:from_area_w,area.w + i] =\
+					np.where(np.isin(j_s, sample_indices), np.ones(self.connectomes[from_area][name][:from_area_w,area.w + i].shape),
+						 self.connectomes[from_area][name][:from_area_w,area.w + i])
+				self.connectomes[from_area][name][:from_area_w,area.w + i] =\
+					np.where(np.isin(j_s, from_area_winners, invert=True), sample_binomial[:from_area_w,area.w + i],
+						 self.connectomes[from_area][name][:from_area_w,area.w + i])
 				# for j in range(from_area_w):
 				# 	if j in sample_indices:
 				# 		self.connectomes[from_area][name][j][area.w+i] = 1.0
