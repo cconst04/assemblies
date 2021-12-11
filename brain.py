@@ -76,27 +76,38 @@ class LearningRule:
 			# 		coefficient = beta*connectomes[j][i] if self.rule == 'hebb' else beta*connectomes[j][i]*(1 - self.alpha*connectomes[j][i]**2)
 			# 		connectomes[j][i] = connectomes[j][i] + coefficient
 		elif self.rule == 'stdpv2':
-			for idx, i in enumerate(new_winners):
-				# dist = []
-				# add a small number so the 0 weights have some chance to be selected
-				non_zero_indices = []
-				for j in from_area_winners:
-					if connectomes[j][i] > 0:
-						non_zero_indices.append(j)
-						# dist.append(connectomes[j][i])
-				# dist = dist / sum(dist)
-				to_reward = np.random.choice(non_zero_indices, size=int(len(non_zero_indices) * self.reward_ratio), replace=False)
-				to_punish = set(non_zero_indices).difference(set(to_reward))
-				# diff is for debugging purposes to see the overall weight change input to the winner neuron in the target area
-				diff = 0
-				for j in to_reward:
-					old_input = connectomes[j][i]
-					connectomes[j][i] *= (1.0 + beta)
-					diff += (connectomes[j][i] - old_input)
-				for j in list(to_punish):
-					old_input = connectomes[j][i]
-					connectomes[j][i] *= (1.0 - self.punish_beta)
-					diff += (connectomes[j][i] - old_input)
+			i_s = np.expand_dims(np.isin(np.arange(connectomes.shape[1]), new_winners), 0)
+			j_s = np.expand_dims(np.isin(np.arange(connectomes.shape[0]), from_area_winners), 1)
+			mask = np.logical_and(j_s, i_s)
+			r = np.random.rand(mask.shape[0], mask.shape[1])
+			reward_mask = np.logical_and(np.where(r < self.reward_ratio, 1, 0), mask)
+			punish_mask = np.logical_and(np.where(r >= self.reward_ratio, 1, 0), mask)
+			updated_reward_weights = connectomes + beta * connectomes * (1 - self.alpha * connectomes ** 2)
+			updated_punish_weights = connectomes - self.punish_beta * connectomes * (1 - self.alpha * connectomes ** 2)
+			np.putmask(connectomes, reward_mask, updated_reward_weights)
+			np.putmask(connectomes, punish_mask, updated_punish_weights)
+
+		# for idx, i in enumerate(new_winners):
+			# 	# dist = []
+			# 	# add a small number so the 0 weights have some chance to be selected
+			# 	non_zero_indices = []
+			# 	for j in from_area_winners:
+			# 		if connectomes[j][i] > 0:
+			# 			non_zero_indices.append(j)
+			# 			# dist.append(connectomes[j][i])
+			# 	# dist = dist / sum(dist)
+			# 	to_reward = np.random.choice(non_zero_indices, size=int(len(non_zero_indices) * self.reward_ratio), replace=False)
+			# 	to_punish = set(non_zero_indices).difference(set(to_reward))
+			# 	# diff is for debugging purposes to see the overall weight change input to the winner neuron in the target area
+			# 	diff = 0
+			# 	for j in to_reward:
+			# 		old_input = connectomes[j][i]
+			# 		connectomes[j][i] *= (1.0 + beta)
+			# 		diff += (connectomes[j][i] - old_input)
+			# 	for j in list(to_punish):
+			# 		old_input = connectomes[j][i]
+			# 		connectomes[j][i] *= (1.0 - self.punish_beta)
+			# 		diff += (connectomes[j][i] - old_input)
 				# print(diff)
 
 
