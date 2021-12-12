@@ -63,6 +63,7 @@ class LearningRule:
 					coefficient = self._time_reward(position_j, beta, is_late)
 					connectomes[j][i] *= coefficient
 				# print(update)
+				# print(update)
 		elif self.rule == 'stdpv2':
 			i_s = np.expand_dims(np.isin(np.arange(connectomes.shape[1]), new_winners), 0)
 			j_s = np.expand_dims(np.isin(np.arange(connectomes.shape[0]), from_area_winners), 1)
@@ -136,12 +137,12 @@ class LearningRule:
 				connectomes[i] = connectomes[i] + coefficient
 		elif self.rule == 'stdp':
 			for i in new_winners:
-				# avoid negative values
-				stimulus_reward_part = max(minimum_activation_input - total_sum[i], 0)
-				total_sum[i] += connectomes[i]
-				punish_part = max(total_sum[i] - minimum_activation_input, 0)
+				stimulus_reward_part = min(minimum_activation_input, connectomes[i])
+				punish_part = max(connectomes[i] - minimum_activation_input, 0)
 				# print(f'rewarded:{stimulus_reward_part}, punished:{punish_part}, minimum_input:{minimum_activation_input}')
+				total_sum[i] += connectomes[i]
 				connectomes[i] = stimulus_reward_part * (1 + beta) + punish_part * (1 - self.punish_beta)
+
 		elif self.rule == 'stdpv2' or self.rule == 'stdpv3':
 			for i in new_winners:
 				# split both for reward and punishment beta
