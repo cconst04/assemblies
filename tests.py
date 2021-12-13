@@ -37,7 +37,7 @@ def project_test(n=100000,k=317,p=0.01,beta=0.05, alpha=None, punish_beta=None, 
 			result_stats[stat].append(stats[stat])
 		result_stats['support'].append(b.areas['A'].w)
 		result_stats['overlap_pct'].append(viz.overlap_pct)
-		print(f"support:{b.areas['A'].w}, pct:{viz.overlap_pct}", result_stats)
+		print(f"support:{b.areas['A'].w}, pct:{viz.overlap_pct}")
 		if isclose(result_stats['overlap_pct'][-1], 1.0):
 			# early stopping
 			print('early stopping')
@@ -290,3 +290,4 @@ if __name__ == '__main__':
 	#
 	# }
 	# run_tests(params, 'experiments/large_stdp.pickle')
+

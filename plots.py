@@ -1,5 +1,7 @@
 import pickle
 import matplotlib.pyplot as plt
+from scipy.special import lambertw
+import math
 def plot_graphs(variable_metric, fname, output_dest):
 	"""
 	variable metric: the metric that varies throughout the experiment
@@ -10,6 +12,15 @@ def plot_graphs(variable_metric, fname, output_dest):
 		tests = pickle.load(handle)
 	all_metrics = tests[list(tests.keys())[0]].keys()
 	for metric in all_metrics:
+		if metric == 'density_ratio':
+			params = eval([*tests.keys()][-1])
+			n = params['n'] if 'n' in params else 10**5
+			k = params['k']
+			p = params['p']
+			breakpoint()
+			density_bound = ((2 * math.log10(n) / (k * lambertw(2 * math.log10(n) / (k * p)))).real / params['p'])
+			plt.axhline(y=density_bound, color='r', linestyle='dashed', linewidth=2)
+
 		for test in tests:
 			tmp = ''
 			test = eval(test)
@@ -25,4 +36,4 @@ def plot_graphs(variable_metric, fname, output_dest):
 
 
 if __name__ =='__main__':
-	plot_graphs('alpha', 'experiments/oja1.pickle', 'plots/oja1/oja1')
+	plot_graphs('beta', 'experiments/stdpv2_1.pickle', 'plots/stdpv2_1/stdpv2_1')
