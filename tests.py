@@ -13,11 +13,11 @@ import pickle
 import itertools
 from math import isclose
 
-def project_test(n=100000,k=317,p=0.01,beta=0.05, alpha=None, punish_beta=None, reward_ratio=1/2, rounds=100, learning_rule='hebb'):
+def project_test(n=100000,k=317,p=0.01,beta=0.05, alpha=None, punish_beta=None, reward_ratio=1/2, rounds=100, learning_rule='hebb', stdp_time_alpha=0.1):
 	viz = Visualizer()
 	b = brain.Brain(p)
 	b.add_stimulus("stim",k)
-	b.add_area("A", n, k, beta, learning_rule=learning_rule, time_function='step', punish_beta=punish_beta, reward_ratio=reward_ratio, alpha=alpha)
+	b.add_area("A", n, k, beta, learning_rule=learning_rule, time_function='step', punish_beta=punish_beta, reward_ratio=reward_ratio, alpha=alpha, stdp_time_alpha=stdp_time_alpha)
 	# b.add_area("A", n, k, beta, learning_rule='stdp', time_function='step', punish_beta=beta/2)
 	# b.add_area("A", n, k, beta, learning_rule='oja')
 	# b.add_area("A", n, k, beta, learning_rule='hebb')
@@ -48,14 +48,14 @@ def project_test(n=100000,k=317,p=0.01,beta=0.05, alpha=None, punish_beta=None, 
 	return result_stats
 
 
-def project_merge_test(n=100000,k=317,p=0.01,beta=0.05, alpha=None, punish_beta=None, reward_ratio=1/2, rounds=100, learning_rule='hebb'):
+def project_merge_test(n=100000,k=317,p=0.01,beta=0.05, alpha=None, punish_beta=None, reward_ratio=1/2, rounds=100, learning_rule='hebb', stdp_time_alpha=0.1):
 	viz = Visualizer()
 	b = brain.Brain(p)
 	b.add_stimulus("stimA",k)
 	b.add_stimulus("stimB",k)
-	b.add_area("A", n, k, beta, learning_rule=learning_rule, time_function='step', punish_beta=punish_beta, reward_ratio=reward_ratio, alpha=alpha)
-	b.add_area("B", n, k, beta, learning_rule=learning_rule, time_function='step', punish_beta=punish_beta, reward_ratio=reward_ratio, alpha=alpha)
-	b.add_area("C", n, k, beta, learning_rule=learning_rule, time_function='step', punish_beta=punish_beta, reward_ratio=reward_ratio, alpha=alpha)
+	b.add_area("A", n, k, beta, learning_rule=learning_rule, time_function='step', punish_beta=punish_beta, reward_ratio=reward_ratio, alpha=alpha, stdp_time_alpha=stdp_time_alpha)
+	b.add_area("B", n, k, beta, learning_rule=learning_rule, time_function='step', punish_beta=punish_beta, reward_ratio=reward_ratio, alpha=alpha, stdp_time_alpha=stdp_time_alpha)
+	b.add_area("C", n, k, beta, learning_rule=learning_rule, time_function='step', punish_beta=punish_beta, reward_ratio=reward_ratio, alpha=alpha, stdp_time_alpha=stdp_time_alpha)
 
 	# b.add_area("A", n, k, beta, learning_rule='stdp', time_function='step', punish_beta=beta/2)
 	# b.add_area("A", n, k, beta, learning_rule='oja')
@@ -67,7 +67,7 @@ def project_merge_test(n=100000,k=317,p=0.01,beta=0.05, alpha=None, punish_beta=
 		{"A":["A","C"],"B":["B","C"]})
 	b.project({"stimA":["A"],"stimB":["B"]},
 		{"A":["A","C"],"B":["B","C"],"C":["C","A","B"]})
-	viz.plot_weights(b.areas['A'].winners)
+	viz.plot_weights(b.areas['C'].winners)
 	print(f'n:{n}, k:{k}, p:{p}, beta:{beta}, punish_beta:{punish_beta}, reward_ratio:{reward_ratio}')
 	result_stats = {'support':[], 'overlap_pct':[]}
 	for i in range(rounds):
@@ -236,17 +236,21 @@ if __name__ == '__main__':
 
 	# }
 	# run_tests(params, 'experiments/oja1.pickle')
-	# params = {
-	# 	'p': [0.01],
-	# 	'k': [300],
-	# 	'alpha': [0.01],
-	# 	'beta': [0.01, 0.03, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5],
-	# 	'punish_beta': [None],
-	# 	'reward_ratio': [0.5],
-	# 	'learning_rule':['stdp']
+	params = {
+		'p': [0.001],
+		'n': [10**5],
+		'k': [10**3],
+		'alpha': [0.01],
+		'stdp_time_alpha': [0.01, 0.05, 0.1],
+		'beta': [0.1],
+		'punish_beta': [0.1],
+		# 'punish_beta': [0],
+		'reward_ratio': [0.5],
+		'learning_rule':['stdp_weight_splitting_time']
 
-	# }
-	# run_tests(params, 'experiments/stdp_1.pickle')
+	}
+	run_tests(params, 'experiments/stdp_time_alpha_compare.pickle')
+
 	# params = {
 	# 	# 'p': [0.001],
 	# 	# 'n': [10**7],
@@ -258,18 +262,31 @@ if __name__ == '__main__':
 	# 	'learning_rule':['oja']
 	#
 	# }
-	# run_tests(params, 'experiments/merge_small_oja.pickle', merge=True)
+	# run_tests(params, 'experiments/merge_small_oja2.pickle', merge=True)
 
 
-	params = {
-		'p': [0.001],
-		'n': [10**7],
-		'k': [10**4],
-		'alpha': [0.003, 0.005, 0.008, 0.01],
-		'beta': [0.1],
-		'punish_beta': [0.025],
-		'reward_ratio': [0.9],
-		'learning_rule':['oja']
 
-	}
-	run_tests(params, 'experiments/large_oja2.pickle')
+	# params = {
+	# 	'p': [0.001],
+	# 	'n': [10**7],
+	# 	'k': [10**4],
+	# 	'alpha': [0.003, 0.005, 0.008, 0.01],
+	# 	'beta': [0.1],
+	# 	'punish_beta': [0.025],
+	# 	'reward_ratio': [0.9],
+	# 	'learning_rule':['oja']
+	#
+	# }
+	# run_tests(params, 'experiments/large_oja2.pickle')
+	# params = {
+	# 	'p': [0.001],
+	# 	'n': [10**5],
+	# 	'k': [10**3],
+	# 	'alpha': [0.0],
+	# 	'punish_beta': [0, 0.001, 0.003, 0.007, 0.015, 0.031, 0.063, 0.127, 0.255, 0.511],
+	# 	'beta': [0.1],
+	# 	'reward_ratio': [0.5],
+	# 	'learning_rule':['stdpv2']
+	#
+	# }
+	# run_tests(params, 'experiments/large_stdp.pickle')

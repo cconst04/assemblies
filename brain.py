@@ -21,7 +21,7 @@ class LearningRule:
 	Handles the updates of the synaptic weights.
 	In case of stdp, 1 +/- beta is the maximum or minimum value a synaptic update can have
 	"""
-	def __init__(self, rule='hebb', punish_beta=None, time_function=None, reward_ratio=None, alpha=None, **kwargs):
+	def __init__(self, rule='hebb', punish_beta=None, time_function=None, reward_ratio=None, alpha=None, stdp_time_alpha=None, **kwargs):
 		# if rule not in ['hebb', 'oja', 'stdp']:
 		# 	raise Exception('Rule not found')
 		self.rule = rule
@@ -29,6 +29,10 @@ class LearningRule:
 		self.time_function = time_function
 		self.reward_ratio = reward_ratio
 		self.alpha = alpha
+		if self.rule == 'hebb' or self.rule.startswith('stdp'):
+			self.alpha = 0.0
+
+		self.stdp_time_alpha = stdp_time_alpha
 
 
 	def update_area_to_area_weights(self, connectomes, from_area_winners, beta, new_winners, minimum_activation_input=0, total_sum=None):
@@ -49,55 +53,63 @@ class LearningRule:
 			# 	for j in from_area_winners:
 			# 		coefficient = beta*connectomes[j][i] if self.rule == 'hebb' else beta*connectomes[j][i]*(1 - self.alpha*connectomes[j][i]**2)
 			# 		connectomes[j][i] = connectomes[j][i] + coefficient
-		elif self.rule == 'stdp':
-			if self.punish_beta is None:
-				self.punish_beta = beta
-			for idx, i in enumerate(new_winners):
-				# update the connectomes first
-				update = [0, 0]
-				for position_j, j in enumerate(sorted(from_area_winners)):
-					# add the weight of the synapse and compare it threshold
-					total_sum[i] += connectomes[j][i]
-					is_late = total_sum[i] > minimum_activation_input
-					update[int(is_late)] += 1
-					coefficient = self._time_reward(position_j, beta, is_late)
-					connectomes[j][i] *= coefficient
-				# print(update)
-				# print(update)
-		elif self.rule == 'stdpv2':
+		elif self.rule == 'stdp_random' or self.rule == 'stdp_weight_splitting_step' or self.rule == 'stdp_weight_splitting_time':
+			use_random_sampling = False
+			use_weight_splitting = True
+			use_time_function = True
+
 			i_s = np.expand_dims(np.isin(np.arange(connectomes.shape[1]), new_winners), 0)
 			j_s = np.expand_dims(np.isin(np.arange(connectomes.shape[0]), from_area_winners), 1)
 			mask = np.logical_and(j_s, i_s)
-			r = np.random.rand(mask.shape[0], mask.shape[1])
-			reward_mask = np.logical_and(np.where(r < self.reward_ratio, 1, 0), mask)
-			punish_mask = np.logical_and(np.where(r >= self.reward_ratio, 1, 0), mask)
-			updated_reward_weights = connectomes + beta * connectomes * (1 - self.alpha * connectomes ** 2)
-			updated_punish_weights = connectomes - self.punish_beta * connectomes * (1 - self.alpha * connectomes ** 2)
+			if self.rule == 'stdp_random':
+				r = np.random.rand(mask.shape[0], mask.shape[1])
+				reward_mask = np.logical_and(np.where(r < self.reward_ratio, 1, 0), mask)
+				punish_mask = np.logical_and(np.where(r >= self.reward_ratio, 1, 0), mask)
+				updated_reward_weights = connectomes + beta * connectomes * (1 - self.alpha * connectomes ** 2)
+				updated_punish_weights = connectomes - self.punish_beta * connectomes * (1 - self.alpha * connectomes ** 2)
+			elif self.rule == 'stdp_weight_splitting_step' or self.rule == 'stdp_weight_splitting_time':
+				# Connectomes is 10000 x 10000
+				# i = 9999
+				# len(new_winners) == k
+				#
+				# total_sum.shape[0] == connectomes.shape[1]
+				total_sum_expanded = np.expand_dims(total_sum, 0)
+				# print((connectomes * mask)[:,0], np.cumsum(connectomes * mask, axis=1)[:, 0])
+				cumsum_js = np.cumsum(connectomes * mask, axis=1) + np.repeat(total_sum_expanded, connectomes.shape[0], axis=0)
+				relative_arrivals = cumsum_js - minimum_activation_input
+				reward_mask = np.where(relative_arrivals < 0, 1, 0) * mask
+				punish_mask = np.where(relative_arrivals >= 0, 1, 0) * mask
+				print(reward_mask.shape, punish_mask.shape)
+
+				# print("rewarding", np.sum(reward_mask), "punishing:", np.sum(punish_mask))
+				# print("total_sum before", total_sum)
+				total_sum = (np.asarray(total_sum) + np.sum(connectomes * mask, axis=0)).tolist()
+				# print("total_sum after", total_sum)
+
+				# print("len(total_sum.shape)", len(total_sum), "np.sum(connectomes * mask, axis=0).shape", np.sum(connectomes * mask, axis=0).shape)
+				# total_sum += np.sum(connectomes * mask, axis=0)
+
+				if self.rule == 'stdp_weight_splitting_time':
+					# this is very important in the first state where everyone is equal to zero.
+					relative_arrivals = np.where(relative_arrivals == 0, 1., relative_arrivals)
+					inv_relative_arrivals = 1 + (1.0 / relative_arrivals)
+					print(self.stdp_time_alpha*(1.0 / relative_arrivals))
+					# inv_relative_arrivals = np.where(inv_relative_arrivals > 1.05, 1.05, inv_relative_arrivals)
+					# inv_relative_arrivals = np.where(inv_relative_arrivals < -1.05, -1.05, inv_relative_arrivals)
+
+					updated_reward_weights = connectomes + self.stdp_time_alpha*inv_relative_arrivals*connectomes * (1 - self.alpha * connectomes ** 2)
+					print("unique vals", np.unique(1.0 / relative_arrivals))
+					print("max value", np.max(1.0 / relative_arrivals), np.max(inv_relative_arrivals))
+					print("min value", np.min(1.0 / relative_arrivals), np.min(inv_relative_arrivals))
+
+					updated_punish_weights = updated_reward_weights
+					print(updated_reward_weights)
+				else:
+					updated_reward_weights = connectomes + beta * connectomes * (1 - self.alpha * connectomes ** 2)
+					updated_punish_weights = connectomes - self.punish_beta * connectomes * (1 - self.alpha * connectomes ** 2)
 			np.putmask(connectomes, reward_mask, updated_reward_weights)
 			np.putmask(connectomes, punish_mask, updated_punish_weights)
 
-		# for idx, i in enumerate(new_winners):
-		# 		# dist = []
-		# 		# add a small number so the 0 weights have some chance to be selected
-		# 		non_zero_indices = []
-		# 		for j in from_area_winners:
-		# 			if connectomes[j][i] > 0:
-		# 				non_zero_indices.append(j)
-		# 				# dist.append(connectomes[j][i])
-		# 		# dist = dist / sum(dist)
-		# 		to_reward = np.random.choice(non_zero_indices, size=int(len(non_zero_indices) * self.reward_ratio), replace=False)
-		# 		to_punish = set(non_zero_indices).difference(set(to_reward))
-		# 		# diff is for debugging purposes to see the overall weight change input to the winner neuron in the target area
-		# 		diff = 0
-		# 		for j in to_reward:
-		# 			old_input = connectomes[j][i]
-		# 			connectomes[j][i] *= (1.0 + beta)
-		# 			diff += (connectomes[j][i] - old_input)
-		# 		for j in list(to_punish):
-		# 			old_input = connectomes[j][i]
-		# 			connectomes[j][i] *= (1.0 - self.punish_beta)
-		# 			diff += (connectomes[j][i] - old_input)
-				# print(diff)
 		elif self.rule == 'stdpv3':
 			"""
 			random sampling but take into consideration the distribution of the weights
@@ -135,15 +147,8 @@ class LearningRule:
 			for i in new_winners:
 				coefficient = beta*connectomes[i] if self.rule == 'hebb' else beta*connectomes[i]*(1 - self.alpha*connectomes[i]**2)
 				connectomes[i] = connectomes[i] + coefficient
-		elif self.rule == 'stdp':
-			for i in new_winners:
-				stimulus_reward_part = min(minimum_activation_input, connectomes[i])
-				punish_part = max(connectomes[i] - minimum_activation_input, 0)
-				# print(f'rewarded:{stimulus_reward_part}, punished:{punish_part}, minimum_input:{minimum_activation_input}')
-				total_sum[i] += connectomes[i]
-				connectomes[i] = stimulus_reward_part * (1 + beta) + punish_part * (1 - self.punish_beta)
 
-		elif self.rule == 'stdpv2' or self.rule == 'stdpv3':
+		elif self.rule in ['stdp_random', 'stdp_weight_splitting_step', 'stdp_weight_splitting_time', "stdpv3"]:
 			for i in new_winners:
 				# split both for reward and punishment beta
 				connectomes[i] = connectomes[i] * (self.reward_ratio * (1 + beta) + (1 - self.reward_ratio) * (1 - self.punish_beta))
