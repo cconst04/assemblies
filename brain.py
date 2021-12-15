@@ -29,35 +29,8 @@ class LearningRule:
 		self.time_function = time_function
 		self.reward_ratio = reward_ratio
 		self.alpha = alpha
-				
-	def update_stdp_sum(self, area_connectomes, stimuli_connectomes, from_area_winners, beta, new_winners, minimum_activation_input=0):
-		"""
-		Updates both the area to area connectomes and the stimulus to area connectomes for stdp with cumulative sum learning rule.
-		First it takes the cumulative sum of the connectomes and rewards them if their cumulative sum is less than the input of the winners.
-		For the remaining input coming from the stimulus that is less than minimum activation input it rewards it and the rest is punished
-		"""
-		if self.punish_beta is None:
-			self.punish_beta = beta
 
-		for idx, i in enumerate(new_winners):
-			cum_sum = 0
-			all_coefficients = []
-			# update the connectomes first
-			for position_j, j in enumerate(sorted(from_area_winners)):
-				cum_sum += area_connectomes[j][i]
-				# is_late = position_j > len(from_area_winners) / 2
-				is_late = cum_sum > minimum_activation_input
-				coefficient = self._time_reward(position_j, beta, is_late)
-				all_coefficients.append(coefficient)
-				area_connectomes[j][i] *= coefficient
-			# update the stimuli weights
-			stimulus_reward_part = minimum_activation_input - cum_sum
-			punish_part = stimuli_connectomes[i] - stimulus_reward_part
-			# print(f'rewarded:{stimulus_reward_part}, punished:{punish_part}, total_input:{cum_sum+stimuli_connectomes[i]} minimum_input:{minimum_activation_input}')
-			stimuli_connectomes[i] = stimulus_reward_part * (1 + beta) + punish_part * (1 - self.punish_beta)
-
-
-	def update_area_to_area_weights(self, connectomes, from_area_winners, beta, new_winners, minimum_activation_input=0):
+	def update_area_to_area_weights(self, connectomes, from_area_winners, beta, new_winners, minimum_activation_input=0, total_sum=None):
 		"""
 		Stdp: for the ith presynaptic neuron reward only if the cumulative sum until i is <= the minimum input of all the winners
 		"""
@@ -66,6 +39,19 @@ class LearningRule:
 				for j in from_area_winners:
 					coefficient = beta*connectomes[j][i] if self.rule == 'hebb' else beta*connectomes[j][i]*(1 - self.alpha*connectomes[j][i]**2)
 					connectomes[j][i] = connectomes[j][i] + coefficient
+		elif self.rule == 'stdp':
+			if self.punish_beta is None:
+				self.punish_beta = beta
+			for idx, i in enumerate(new_winners):
+				# update the connectomes first
+				update = [0, 0]
+				for position_j, j in enumerate(sorted(from_area_winners)):
+					# add the weight of the synapse and compare it threshold
+					total_sum[i] += connectomes[j][i]
+					is_late = total_sum[i] > minimum_activation_input
+					update[int(is_late)] += 1
+					coefficient = self._time_reward(position_j, beta, is_late)
+					connectomes[j][i] *= coefficient
 		elif self.rule == 'stdpv2':
 			for idx, i in enumerate(new_winners):
 				# dist = []
@@ -91,7 +77,7 @@ class LearningRule:
 				# print(diff)
 
 
-	def update_stimulus_to_area_weights(self, connectomes, beta, new_winners=None, minimum_activation_input=0):
+	def update_stimulus_to_area_weights(self, connectomes, beta, new_winners=None, minimum_activation_input=0, total_sum=None, expanded_stimuli_connectomes=None):
 		"""
 		For stdp with cumulative sum it is handled in the update_stdp_sum method and for stdpv2 we assume 
 		that the amount of neurons punished in the stimulus is equal to the amount of neurons rewarded
@@ -100,13 +86,44 @@ class LearningRule:
 			for i in new_winners:
 				coefficient = beta*connectomes[i] if self.rule == 'hebb' else beta*connectomes[i]*(1 - self.alpha*connectomes[i]**2)
 				connectomes[i] = connectomes[i] + coefficient
+		elif self.rule == 'stdp':
+			for i in new_winners:
+				# test
+				update = [0, 0]
+				# expanded_connectomes = [connectomes[i] / avg_neurons_per_area for _ in range(avg_neurons_per_area)]
+				for j in range(len(expanded_stimuli_connectomes[i])):
+					total_sum[i] += expanded_stimuli_connectomes[i][j]
+					is_late = total_sum[i] > minimum_activation_input
+					update[int(is_late)] += 1
+					coefficient = self._time_reward(j, beta, is_late)
+					expanded_stimuli_connectomes[i][j] *= coefficient
+				connectomes[i] = sum(expanded_stimuli_connectomes[i])
+				# print(update)
+				# end test
+				# stimulus_reward_part = min(minimum_activation_input, connectomes[i])
+				# punish_part = max(connectomes[i] - minimum_activation_input, 0)
+				# # print(f'rewarded:{stimulus_reward_part}, punished:{punish_part}, minimum_input:{minimum_activation_input}')
+				# total_sum[i] += connectomes[i]
+				# connectomes[i] = stimulus_reward_part * (1 + beta) + punish_part * (1 - self.punish_beta)
 		elif self.rule == 'stdpv2':
 			for i in new_winners:
+				# expanded_connectomes = [connectomes[i] / avg_neurons_per_area for _ in range(avg_neurons_per_area)]
+				total_neurons = len(expanded_stimuli_connectomes[i])
+				to_reward = np.random.choice([*range(total_neurons)], size=int(total_neurons * self.reward_ratio), replace=False)
+				to_punish = set([*range(total_neurons)]).difference(set(to_reward))
+				# diff is for debugging purposes to see the overall weight change input to the winner neuron in the target area
+				diff = 0
+				for j in to_reward:
+					expanded_stimuli_connectomes[i][j] *= (1.0 + beta)
+				for j in list(to_punish):
+					expanded_stimuli_connectomes[i][j] *= (1.0 - self.punish_beta)
+				connectomes[i] = sum(expanded_stimuli_connectomes[i])
 				# split both for reward and punishment beta
-				connectomes[i] = connectomes[i] * (self.reward_ratio * (1 + beta) + (1 - self.reward_ratio) * (1 - self.punish_beta))
+				# connectomes[i] = connectomes[i] * (self.reward_ratio * (1 + beta) + (1 - self.reward_ratio) * (1 - self.punish_beta))
 
 
-	def _time_reward(self, position, is_late, beta, punish_beta=None):
+
+	def _time_reward(self, position, beta, is_late, punish_beta=None):
 		if punish_beta is None:
 			punish_beta = beta
 		if self.time_function == 'step':
@@ -177,6 +194,7 @@ class Brain:
 		self.areas = {}
 		self.stimuli = {}
 		self.stimuli_connectomes = {}
+		self.expanded_stimuli_connectomes = {}
 		self.connectomes = {} 
 		self.p = p
 		self.save_size = save_size
@@ -186,22 +204,26 @@ class Brain:
 
 	def add_stimulus(self, name, k):
 		self.stimuli[name] = Stimulus(k)
+		self.expanded_stimuli_connectomes[name] = {}
 		new_connectomes = {}
+		new_expanded_connectomes = {}
 		for key in self.areas:
 			if self.areas[key].explicit:
 				new_connectomes[key] = np.random.binomial(k, self.p, size=(self.areas[key].n)) * 1.0
 			else:
 				new_connectomes[key] = np.empty(0)
+				new_expanded_connectomes[key] = np.empty(0)
 			self.areas[key].stimulus_beta[name] = self.areas[key].beta
 		self.stimuli_connectomes[name] = new_connectomes
+		self.expanded_stimuli_connectomes[name] = new_expanded_connectomes
 
 	def add_area(self, name, n, k, beta, learning_rule='hebb', **kwargs):
 		self.areas[name] = Area(name, n, k, beta, learning_rule=learning_rule, **kwargs)
 
 		for stim_name, stim_connectomes in list(self.stimuli_connectomes.items()):
 			stim_connectomes[name] = np.empty(0)
+			self.expanded_stimuli_connectomes[stim_name][name] = []
 			self.areas[name].stimulus_beta[stim_name] = beta
-
 		new_connectomes = {}
 		for key in self.areas:
 			other_area_size = 0
@@ -435,6 +457,7 @@ class Brain:
 		# connectome for each stim->area
 			# add num_first_winners cells, sampled input * (1+beta)
 			# for i in repeat_winners, stimulus_inputs[i] *= (1+beta)
+		total_sum = [0] * area.new_w
 		for stim in from_stimuli:
 			if num_first_winners > 0:
 				self.stimuli_connectomes[stim][name] = np.resize(self.stimuli_connectomes[stim][name],
@@ -444,16 +467,21 @@ class Brain:
 			stim_to_area_beta = area.stimulus_beta[stim]
 			if self.no_plasticity:
 				stim_to_area_beta = 0.0
-			# area.learning_rule.update_stimulus_to_area_weights(self.stimuli_connectomes[stim][name], area.new_winners, area.stimulus_beta[stim])
+			# initialize expanded stimuli for new winners
+			for i in range(area.w, area.w + num_first_winners):
+				# initially all the weights = 1
+				weights = [1 for _ in range(int(self.stimuli_connectomes[stim][name][i]))]
+				self.expanded_stimuli_connectomes[stim][name].append(weights)
+			kwargs = {}
 			if 'stdp' in area.learning_rule.rule:
-				area.learning_rule.update_stimulus_to_area_weights(self.stimuli_connectomes[stim][name], 
-																   stim_to_area_beta,
-																   area.new_winners,
-																   minimum_activation_input=minimum_activation_input)
-			else:
-				area.learning_rule.update_stimulus_to_area_weights(self.stimuli_connectomes[stim][name], 
-															  	   stim_to_area_beta,
-															  	   area.new_winners)
+				kwargs['minimum_activation_input'] = minimum_activation_input
+				kwargs['total_sum'] = total_sum
+				kwargs['expanded_stimuli_connectomes'] = self.expanded_stimuli_connectomes[stim][name]
+
+			area.learning_rule.update_stimulus_to_area_weights(self.stimuli_connectomes[stim][name],
+															   stim_to_area_beta,
+															   area.new_winners,
+															   **kwargs)
 			# todo: change
 			# for i in area.new_winners:
 			# 	self.stimuli_connectomes[stim][name][i] *= (1+stim_to_area_beta)
@@ -492,20 +520,12 @@ class Brain:
 			kwargs = {}
 			if 'stdp' in area.learning_rule.rule:
 				kwargs['minimum_activation_input'] = minimum_activation_input
-			if area.learning_rule.rule == 'stdp':
-				stim = from_stimuli[0]
-				area.learning_rule.update_stdp_sum(self.connectomes[from_area][name],
-												   self.stimuli_connectomes[stim][name],
-												   from_area_winners,
-												   area_to_area_beta,
-												   new_winners=area.new_winners,
-												   **kwargs)
-			else:
-				area.learning_rule.update_area_to_area_weights(self.connectomes[from_area][name], 
-															   from_area_winners, 
-															   area_to_area_beta,
-															   new_winners=area.new_winners,
-															   **kwargs)
+				kwargs['total_sum'] = total_sum
+			area.learning_rule.update_area_to_area_weights(self.connectomes[from_area][name],
+														   from_area_winners,
+														   area_to_area_beta,
+														   area.new_winners,
+														   **kwargs)
 
 			# for i in area.new_winners:
 			# 	for j in from_area_winners:
