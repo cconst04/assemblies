@@ -169,18 +169,18 @@ def run_tests(params, fname):
 
 if __name__ == '__main__':
 	#hebb test 1
-	# params = {
-	# 	'n': [10**5],
-	# 	'p': [0.01],
-	# 	'k': [317],
-	# 	'alpha': [0],
-	# 	'beta': [0.1],
-	# 	'punish_beta': [0.05],
-	# 	'reward_ratio': [0.1],
-	# 	'learning_rule':['hebb']
+	params = {
+		'n': [10**5],
+		'p': [0.01],
+		'k': [317],
+		'alpha': [0],
+		'beta': [0.1],
+		'punish_beta': [0.05],
+		'reward_ratio': [0.1],
+		'learning_rule':['hebb']
 
-	# }
-	# run_tests(params, 'experiments/test.pickle')
+	}
+	run_tests(params, 'experiments/test.pickle')
 
 
 	#oja test 1
