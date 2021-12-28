@@ -8,6 +8,7 @@ import math
 import random
 from visualization import Visualizer
 import numpy as np
+import math
 # Configurable assembly model for simulations
 # Author Daniel Mitropolsky, 2018
 
@@ -22,13 +23,12 @@ class LearningRule:
 	In case of stdp, 1 +/- beta is the maximum or minimum value a synaptic update can have
 	"""
 	def __init__(self, rule='hebb', punish_beta=None, time_function=None, reward_ratio=None, alpha=None, **kwargs):
-		# if rule not in ['hebb', 'oja', 'stdp']:
-		# 	raise Exception('Rule not found')
 		self.rule = rule
 		self.punish_beta = punish_beta
 		self.time_function = time_function
 		self.reward_ratio = reward_ratio
 		self.alpha = alpha
+		self.alpha_late = kwargs.get('alpha_late')
 
 	def update_area_to_area_weights(self, connectomes, from_area_winners, beta, new_winners, minimum_activation_input=0, total_sum=None):
 		"""
@@ -39,7 +39,7 @@ class LearningRule:
 				for j in from_area_winners:
 					coefficient = beta*connectomes[j][i] if self.rule == 'hebb' else beta*connectomes[j][i]*(1 - self.alpha*connectomes[j][i]**2)
 					connectomes[j][i] = connectomes[j][i] + coefficient
-		elif self.rule == 'stdp':
+		elif self.rule in ['stdp', 'stdp_oja']:
 			if self.punish_beta is None:
 				self.punish_beta = beta
 			for idx, i in enumerate(new_winners):
@@ -50,21 +50,20 @@ class LearningRule:
 					total_sum[i] += connectomes[j][i]
 					is_late = total_sum[i] > minimum_activation_input
 					update[int(is_late)] += 1
-					coefficient = self._time_reward(position_j, beta, is_late)
-					connectomes[j][i] *= coefficient
+					weight_diff = minimum_activation_input - total_sum[i]
+					coefficient = self._time_reward(beta, self.punish_beta, weight_diff=weight_diff, is_late=is_late, curr_weight=connectomes[j][i])
+					if self.rule == 'stdp':
+						connectomes[j][i] *= coefficient
+					else:
+						connectomes[j][i] += coefficient
 		elif self.rule == 'stdpv2':
 			for idx, i in enumerate(new_winners):
-				# dist = []
-				# add a small number so the 0 weights have some chance to be selected
 				non_zero_indices = []
 				for j in from_area_winners:
 					if connectomes[j][i] > 0:
 						non_zero_indices.append(j)
-						# dist.append(connectomes[j][i]) 
-				# dist = dist / sum(dist)
 				to_reward = np.random.choice(non_zero_indices, size=int(len(non_zero_indices) * self.reward_ratio), replace=False)
 				to_punish = set(non_zero_indices).difference(set(to_reward))
-				# diff is for debugging purposes to see the overall weight change input to the winner neuron in the target area
 				diff = 0
 				for j in to_reward:
 					old_input = connectomes[j][i]
@@ -74,7 +73,6 @@ class LearningRule:
 					old_input = connectomes[j][i]
 					connectomes[j][i] *= (1.0 - self.punish_beta)
 					diff += (connectomes[j][i] - old_input)
-				# print(diff)
 
 
 	def update_stimulus_to_area_weights(self, connectomes, beta, new_winners=None, minimum_activation_input=0, total_sum=None, expanded_stimuli_connectomes=None):
@@ -86,28 +84,22 @@ class LearningRule:
 			for i in new_winners:
 				coefficient = beta*connectomes[i] if self.rule == 'hebb' else beta*connectomes[i]*(1 - self.alpha*connectomes[i]**2)
 				connectomes[i] = connectomes[i] + coefficient
-		elif self.rule == 'stdp':
+		elif self.rule in ['stdp', 'stdp_oja']:
 			for i in new_winners:
-				# test
 				update = [0, 0]
-				# expanded_connectomes = [connectomes[i] / avg_neurons_per_area for _ in range(avg_neurons_per_area)]
 				for j in range(len(expanded_stimuli_connectomes[i])):
 					total_sum[i] += expanded_stimuli_connectomes[i][j]
 					is_late = total_sum[i] > minimum_activation_input
 					update[int(is_late)] += 1
-					coefficient = self._time_reward(j, beta, is_late)
-					expanded_stimuli_connectomes[i][j] *= coefficient
+					weight_diff = minimum_activation_input - total_sum[i]
+					coefficient = self._time_reward(beta, self.punish_beta, weight_diff=weight_diff, is_late=is_late, curr_weight=expanded_stimuli_connectomes[i][j])
+					if self.rule == 'stdp':
+						expanded_stimuli_connectomes[i][j] *= coefficient
+					else:
+						expanded_stimuli_connectomes[i][j] += coefficient
 				connectomes[i] = sum(expanded_stimuli_connectomes[i])
-				# print(update)
-				# end test
-				# stimulus_reward_part = min(minimum_activation_input, connectomes[i])
-				# punish_part = max(connectomes[i] - minimum_activation_input, 0)
-				# # print(f'rewarded:{stimulus_reward_part}, punished:{punish_part}, minimum_input:{minimum_activation_input}')
-				# total_sum[i] += connectomes[i]
-				# connectomes[i] = stimulus_reward_part * (1 + beta) + punish_part * (1 - self.punish_beta)
 		elif self.rule == 'stdpv2':
 			for i in new_winners:
-				# expanded_connectomes = [connectomes[i] / avg_neurons_per_area for _ in range(avg_neurons_per_area)]
 				total_neurons = len(expanded_stimuli_connectomes[i])
 				to_reward = np.random.choice([*range(total_neurons)], size=int(total_neurons * self.reward_ratio), replace=False)
 				to_punish = set([*range(total_neurons)]).difference(set(to_reward))
@@ -118,24 +110,27 @@ class LearningRule:
 				for j in list(to_punish):
 					expanded_stimuli_connectomes[i][j] *= (1.0 - self.punish_beta)
 				connectomes[i] = sum(expanded_stimuli_connectomes[i])
-				# split both for reward and punishment beta
-				# connectomes[i] = connectomes[i] * (self.reward_ratio * (1 + beta) + (1 - self.reward_ratio) * (1 - self.punish_beta))
 
 
 
-	def _time_reward(self, position, beta, is_late, punish_beta=None):
+	def _time_reward(self, beta, punish_beta, weight_diff=None, is_late=None, curr_weight=None):
 		if punish_beta is None:
 			punish_beta = beta
 		if self.time_function == 'step':
-				return (1.0 + beta) if not is_late else (1.0 - punish_beta)
-		elif self.time_function == '1/x':
-			denominator = -position if is_late else position
-			if denominator == 0:
-				return 1 + beta
-			if denominator > 0:
-				return min(1 + 1.0 / denominator, 1.0 + beta)
+				return (1 + beta) if not is_late else (1 - punish_beta)
+		elif self.time_function == '1/x_weight':
+			if weight_diff == 0:
+				return 1
+			if weight_diff < 0: 
+				coefficient = max(self.alpha / weight_diff, -punish_beta)
 			else:
-				return max(1 + 1.0 / denominator, (1.0 - beta))		
+				coefficient = min(self.alpha / weight_diff, beta)
+			return 1 + coefficient
+		elif self.time_function == 'step_oja':
+			if weight_diff >= 0:
+				return beta*curr_weight*(1 - self.alpha*curr_weight**2)
+			else:
+				return beta*curr_weight*(1 - self.alpha_late*curr_weight**2)
 
 
 
@@ -344,9 +339,6 @@ class Brain:
 		if verbose:
 			print("prev_winner_inputs: ")
 			print(prev_winner_inputs)
-		# what is an explicit area?
-
-		# add up the stimuli going into the area + the projecting from area winners?
 
 		# simulate area.k potential new winners if the area is not explicit 
 		if not area.explicit:
@@ -402,7 +394,6 @@ class Brain:
 
 		# pick k largest in this area
 		new_winner_indices = heapq.nlargest(area.k, list(range(len(all_potential_winners))), all_potential_winners.__getitem__)
-		#chris test
 
 		# the minimum input a neuron needs to fire
 		minimum_activation_input = heapq.nlargest(area.k, all_potential_winners)[-1]
@@ -482,9 +473,6 @@ class Brain:
 															   stim_to_area_beta,
 															   area.new_winners,
 															   **kwargs)
-			# todo: change
-			# for i in area.new_winners:
-			# 	self.stimuli_connectomes[stim][name][i] *= (1+stim_to_area_beta)
 			if verbose:
 				print((stim + " now looks like: "))
 				print((self.stimuli_connectomes[stim][name]))
@@ -527,9 +515,6 @@ class Brain:
 														   area.new_winners,
 														   **kwargs)
 
-			# for i in area.new_winners:
-			# 	for j in from_area_winners:
-			# 		self.connectomes[from_area][name][j][i] *= (1.0 + area_to_area_beta)
 
 			if verbose:
 				print(("Connectome of " + from_area + " to " + name + " is now:"))
@@ -592,7 +577,7 @@ class Brain:
 		for winner_i in self.areas[from_area].winners:
 			edges = 0
 			for winner_j in self.areas[to_area].winners:
-				if connectomes[winner_i][winner_j] > 0:
+				if not math.isclose(connectomes[winner_i][winner_j], 0):
 					edges += 1
 					pairs.append((winner_i, winner_j))
 			total_edges.append(edges)
@@ -600,10 +585,10 @@ class Brain:
 		assembly_edges = 0.0
 		for i in range(len(connectomes)):
 			for j in range(len(connectomes[i])):
-				if connectomes[i][j] > 0:
+				if not math.isclose(connectomes[i][j], 0):
 					assembly_edges += 1.0
 		k_subgraph_density = sum(total_edges) / (len(self.areas[from_area].winners) * (len(self.areas[from_area].winners)-1))
-		area_density = self.p # assembly_edges / (self.areas[from_area].n * (self.areas[from_area].n - 1))
+		area_density = self.p
 		winner_inputs = [total_input[winner] for winner in self.areas[from_area].winners]
 		# take average of average weight per synapse
 		stats = {
@@ -619,6 +604,7 @@ class Brain:
 			'area_density': area_density,
 			'density_ratio': k_subgraph_density / area_density,
 		}
+		print("density ratio", k_subgraph_density / area_density)
 		return stats
 
 
